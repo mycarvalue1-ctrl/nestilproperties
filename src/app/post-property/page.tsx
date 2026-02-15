@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -116,6 +115,24 @@ export default function PostPropertyPage() {
   });
 
   const propertyType = useWatch({ control: form.control, name: 'propertyType' });
+
+  useEffect(() => {
+    try {
+      const locationJson = localStorage.getItem('userLocation');
+      if (locationJson) {
+        const savedLocation = JSON.parse(locationJson);
+        if (savedLocation.state) {
+            form.setValue('state', savedLocation.state);
+        }
+        if (savedLocation.locality) { // As per data structure, locality is city/town
+          form.setValue('city', savedLocation.locality);
+        }
+      }
+    } catch (error) {
+      console.error("Could not parse location from localStorage", error);
+    }
+  }, [form]);
+
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
