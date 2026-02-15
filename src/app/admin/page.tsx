@@ -59,14 +59,15 @@ export default function AdminPage() {
   const router = useRouter();
   const firestore = useFirestore();
   const { toast } = useToast();
+  
+  const adminUid = 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
+  const isAdmin = currentUser?.uid === adminUid;
 
   useEffect(() => {
-    if (!isUserLoading && (!currentUser || currentUser.email !== 'mycarvalue1@gmail.com')) {
+    if (!isUserLoading && (!currentUser || currentUser.uid !== adminUid)) {
       router.push('/login');
     }
   }, [currentUser, isUserLoading, router]);
-
-  const isAdmin = currentUser?.email === 'mycarvalue1@gmail.com';
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -141,6 +142,7 @@ export default function AdminPage() {
   };
   
   const handleApprove = async (id: string) => {
+    if (!firestore) return;
     try {
       await updateDoc(doc(firestore, 'properties', id), { listingStatus: 'approved', isApproved: true });
       toast({ title: "Property Approved", description: "The listing is now live." });
@@ -150,6 +152,7 @@ export default function AdminPage() {
   };
 
   const handleReject = async (id: string) => {
+    if (!firestore) return;
     try {
       await updateDoc(doc(firestore, 'properties', id), { listingStatus: 'rejected', isApproved: false });
       toast({ title: "Property Rejected" });

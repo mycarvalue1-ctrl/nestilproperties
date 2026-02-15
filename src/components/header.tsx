@@ -37,11 +37,14 @@ export function Header() {
   const auth = useAuth();
   
   const handleLogout = async () => {
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
     router.push('/login');
   };
 
-  const isAdmin = currentUser?.email === 'mycarvalue1@gmail.com';
+  const adminUid = 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
+  const isAdmin = currentUser?.uid === adminUid;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
