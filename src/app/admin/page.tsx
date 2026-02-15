@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Badge } from "@/components/ui/badge";
@@ -26,19 +26,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { properties, users } from "@/lib/data";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search } from "lucide-react";
-import type { User as AppUser } from "@/lib/types";
+import type { User as AppUser, Property } from "@/lib/types";
 import Link from "next/link";
-import { format } from "date-fns";
+import { format, fromUnixTime } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { collection, doc, updateDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
+function AdminSkeleton() {
+  return (
+    <div className="container py-12 space-y-8">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-80" />
+      </div>
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+      </div>
+      <Skeleton className="h-96" />
+      <Skeleton className="h-96" />
+    </div>
+  );
+}
 
 
 export default function AdminPage() {
   const { user: currentUser, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!isUserLoading && (!currentUser || currentUser.email !== 'mycarvalue1@gmail.com')) {
@@ -46,9 +66,19 @@ export default function AdminPage() {
     }
   }, [currentUser, isUserLoading, router]);
 
+  const propertiesQuery = useMemoFirebase(() => collection(firestore, 'properties'), [firestore]);
+  const { data: allProperties, isLoading: propertiesLoading } = useCollection<Property>(propertiesQuery);
+    
+  const usersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
+
+
   const isAdmin = currentUser?.email === 'mycarvalue1@gmail.com';
   
-  if (isUserLoading || !isAdmin) {
+  if (isUserLoading || !isAdmin || propertiesLoading || usersLoading) {
+    if (isUserLoading || propertiesLoading || usersLoading) {
+      return <AdminSkeleton />;
+    }
     return (
       <div className="container py-12 flex items-center justify-center">
         <Alert variant="destructive" className="max-w-lg">
@@ -61,16 +91,15 @@ export default function AdminPage() {
     );
   }
 
-  const pendingProperties = properties.filter(
-    (p) => p.listingStatus === "pending"
-  );
-  
-  const allProperties = properties;
-  const activeListings = properties.filter(p => p.listingStatus === 'approved').length;
-  const soldRentedCount = properties.filter(p => p.listingStatus === 'sold' || p.listingStatus === 'rented').length;
+  const pendingProperties = allProperties?.filter((p) => p.listingStatus === "pending") || [];
+  const activeListings = allProperties?.filter(p => p.listingStatus === 'approved').length || 0;
+  const soldRentedCount = allProperties?.filter(p => p.listingStatus === 'sold' || p.listingStatus === 'rented').length || 0;
+  const usersCount = users?.length || 0;
+  const propertiesCount = allProperties?.length || 0;
 
 
   const handleUserCsvDownload = () => {
+    if (!users) return;
     const headers = ['id', 'name', 'email', 'phone', 'dateJoined', 'role', 'listings'];
     
     const escapeCsvCell = (cell: string | number) => {
@@ -91,7 +120,7 @@ export default function AdminPage() {
         user.dateJoined,
         user.role,
         user.listings
-      ].map(escapeCsvCell).join(','))
+      ].map(v => escapeCsvCell(v || '')).join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-t8;' });
@@ -104,6 +133,36 @@ export default function AdminPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+  
+  const handleApprove = async (id: string) => {
+    try {
+      await updateDoc(doc(firestore, 'properties', id), { listingStatus: 'approved', isApproved: true });
+      toast({ title: "Property Approved", description: "The listing is now live." });
+    } catch (error) {
+      toast({ title: "Error", description: "Could not approve property.", variant: "destructive" });
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      await updateDoc(doc(firestore, 'properties', id), { listingStatus: 'rejected', isApproved: false });
+      toast({ title: "Property Rejected" });
+    } catch (error) {
+      toast({ title: "Error", description: "Could not reject property.", variant: "destructive" });
+    }
+  };
+  
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    if (typeof date === 'string') {
+      return format(new Date(date), 'dd/MM/yyyy');
+    }
+    // Handle Firestore Timestamp
+    if (date.seconds) {
+      return format(fromUnixTime(date.seconds), 'dd/MM/yyyy');
+    }
+    return 'Invalid Date';
   };
 
   return (
@@ -122,7 +181,7 @@ export default function AdminPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{users.length}</div>
+                <div className="text-2xl font-bold">{usersCount}</div>
             </CardContent>
         </Card>
         <Card>
@@ -131,7 +190,7 @@ export default function AdminPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{properties.length}</div>
+                <div className="text-2xl font-bold">{propertiesCount}</div>
             </CardContent>
         </Card>
         <Card>
@@ -168,7 +227,7 @@ export default function AdminPage() {
           <div>
             <CardTitle className="flex items-center gap-2"><Users /> User Management</CardTitle>
             <CardDescription>
-              A total of {users.length} users found. Search by phone number.
+              A total of {usersCount} users found. Search by phone number.
             </CardDescription>
           </div>
            <div className="flex items-center gap-4">
@@ -195,7 +254,7 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {users && users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
@@ -205,7 +264,7 @@ export default function AdminPage() {
                       {user.role}
                     </Badge>
                   </TableCell>
-                  <TableCell>{user.listings}</TableCell>
+                  <TableCell>{user.listings ?? 'N/A'}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -257,16 +316,16 @@ export default function AdminPage() {
                 pendingProperties.map((prop) => (
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{prop.owner.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{prop.owner?.name}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {format(new Date(prop.dateAdded), 'dd/MM/yyyy')}
+                      {formatDate(prop.dateAdded)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={() => handleApprove(prop.id)}>
                           <CheckCircle className="mr-1 h-4 w-4" /> Approve
                         </Button>
-                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
+                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleReject(prop.id)}>
                           <XCircle className="mr-1 h-4 w-4" /> Reject
                         </Button>
                       </div>
@@ -336,12 +395,12 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-               {allProperties.map((prop) => (
+               {allProperties && allProperties.map((prop) => (
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
                     <TableCell className="hidden sm:table-cell">
-                        <div>{prop.owner.name}</div>
-                        <div className="text-xs text-muted-foreground">{prop.owner.phone}</div>
+                        <div>{prop.owner?.name}</div>
+                        <div className="text-xs text-muted-foreground">{prop.owner?.phone}</div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">₹{prop.price.toLocaleString('en-IN')}</TableCell>
                     <TableCell>

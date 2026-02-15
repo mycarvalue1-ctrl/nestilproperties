@@ -2,17 +2,55 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { properties } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
-import { Edit, MoreVertical, Trash, EyeOff, Eye } from "lucide-react";
+import { Edit, MoreVertical, Trash, EyeOff, Eye, LoaderCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import type { Property } from '@/lib/types';
+import { Skeleton } from "@/components/ui/skeleton";
+
+function MyPropertiesSkeleton() {
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-6">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-10 w-40" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        {[...Array(2)].map((_, i) => (
+          <Card key={i} className="flex flex-col">
+            <Skeleton className="h-48 w-full rounded-t-lg" />
+            <CardContent className="p-4 flex-grow space-y-2">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-6 w-1/3" />
+            </CardContent>
+            <CardFooter className="p-4 border-t flex justify-between items-center">
+              <div className="flex gap-2">
+                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-9 w-24" />
+              </div>
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function MyPropertiesPage() {
-  const { user } = useUser(); // Get the current user
-  // This filter will now use the real user's ID, but still with mock property data.
-  const userProperties = properties.filter(p => p.owner.id === user?.uid);
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const userPropertiesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'properties'), where('ownerId', '==', user.uid));
+  }, [user, firestore]);
+
+  const { data: userProperties, isLoading } = useCollection<Property>(userPropertiesQuery);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -28,6 +66,10 @@ export default function MyPropertiesPage() {
     }
   }
 
+  if (isLoading) {
+    return <MyPropertiesSkeleton />;
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-6">
@@ -37,7 +79,7 @@ export default function MyPropertiesPage() {
         </Button>
       </div>
 
-      {userProperties.length > 0 ? (
+      {userProperties && userProperties.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2">
           {userProperties.map((prop) => (
             <Card key={prop.id} className="flex flex-col">

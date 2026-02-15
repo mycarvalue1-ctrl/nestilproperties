@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -46,6 +45,9 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 
 const amenitiesList = [
   'Parking', 'Lift', 'Borewell Water', 'Municipal Water', 'Power Backup',
@@ -119,6 +121,9 @@ const FormSection = ({ title, description, children, className }: { title: strin
 export default function PostPropertyPage() {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -227,12 +232,107 @@ export default function PostPropertyPage() {
   };
 
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: "You must be logged in to post a property.",
+      });
+      return;
+    }
+
+    try {
+      // NOTE: Photo upload to Cloud Storage is a more complex topic involving a backend or serverless functions.
+      // For now, we will save a placeholder URL.
+      const docData = {
+        // Basic Info
+        title: values.title,
+        description: values.description,
+        propertyType: values.propertyType,
+        type: values.propertyType, // For consistency with type def
+        listingFor: values.listingFor,
+        status: `For ${values.listingFor}`, // For consistency with type def
+
+        // Location
+        city: values.city,
+        address: values.locality, // Using locality as main address part
+        pincode: values.pincode,
+        landmark: values.landmark,
+
+        // Price
+        price: values.price,
+        negotiable: values.negotiable === 'Yes',
+        maintenance: values.maintenance,
+        deposit: values.deposit,
+
+        // Availability
+        availableFrom: values.availableFrom,
+        preferredTenants: values.preferredTenants,
+
+        // Details from the nested 'details' object
+        areaSqFt: values.details.area || values.details.plotArea || 0,
+        bhk: values.details.bhk || '',
+        beds: parseInt(values.details.bhk || '0') || 0,
+        baths: parseInt(values.details.bathrooms || '0') || 0,
+        furnishing: values.details.furnishing,
+        floor: values.details.floor,
+        totalFloors: values.details.totalFloors,
+        facing: values.details.facing,
+        age: values.details.age,
+        plotArea: values.details.plotArea,
+        roadWidth: values.details.roadWidth,
+        dtcpApproved: values.details.approved === 'Yes',
+
+        // Amenities
+        amenities: values.amenities || [],
+        
+        // Photos (placeholder)
+        // In a real app, you'd upload files to Cloud Storage and save the URLs here.
+        photos: values.photos && values.photos.length > 0 
+          ? ['https://picsum.photos/seed/1/800/600'] // Placeholder for the first uploaded image
+          : ['https://picsum.photos/seed/property/800/600'],
+
+        // Owner Info (Denormalized)
+        ownerId: user.uid,
+        owner: {
+          id: user.uid,
+          name: values.ownerName,
+          phone: values.mobile,
+          isAgent: values.postedBy === 'Agent',
+          verified: true, // Assuming logged-in user's info is verified
+        },
+
+        // System-generated fields
+        postedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        dateAdded: new Date().toISOString(), // For sortability and display
+        isApproved: false, // All new properties need approval
+        listingStatus: 'pending',
+        isFeatured: false,
+        isNew: true,
+        isUrgent: false,
+        nearbyPlaces: [], // The form does not collect this yet
+      };
+
+      await addDoc(collection(firestore, 'properties'), docData);
+
+      toast({
         title: "Submission Successful!",
         description: "Your property has been submitted for approval.",
-    })
+      });
+      
+      form.reset();
+      router.push('/dashboard/my-properties');
+
+    } catch (error: any) {
+      console.error('Error adding document: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Submission Failed',
+        description: error.message || 'An unexpected error occurred while saving your property.',
+      });
+    }
   }
 
   return (
