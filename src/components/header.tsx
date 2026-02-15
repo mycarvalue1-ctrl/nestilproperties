@@ -30,8 +30,13 @@ export function Header() {
   const pathname = usePathname();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
-  // Mock login state
-  const isLoggedIn = true;
+  // Mock login state and user. In a real app, this would come from an auth context.
+  const currentUser = {
+    isLoggedIn: true,
+    email: 'mycarvalue1@gmail.com', 
+  };
+
+  const isAdmin = currentUser.isLoggedIn && currentUser.email === 'mycarvalue1@gmail.com';
 
 
   return (
@@ -82,7 +87,7 @@ export function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isLoggedIn ? (
+              {currentUser.isLoggedIn ? (
                 <>
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -90,8 +95,12 @@ export function Header() {
                   <DropdownMenuItem asChild><Link href="/dashboard/my-properties">My Properties</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/dashboard/profile">Profile</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/favorites">Favorites</Link></DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                   <DropdownMenuItem asChild><Link href="/admin">Admin Panel</Link></DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild><Link href="/admin">Admin Panel</Link></DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>Logout</DropdownMenuItem>
                 </>

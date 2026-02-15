@@ -22,8 +22,16 @@ import { CheckCircle, XCircle, Clock, Download, Users, Eye } from "lucide-react"
 import type { User } from "@/lib/types";
 import Link from "next/link";
 import { format } from "date-fns";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+// Mock current user for route protection. In a real app, this would come from an auth context.
+const currentUser = {
+  email: 'mycarvalue1@gmail.com',
+};
 
 export default function AdminPage() {
+  const isAdmin = currentUser.email === 'mycarvalue1@gmail.com';
+  
   const pendingProperties = properties.filter(
     (p) => p.listingStatus === "pending"
   );
@@ -65,6 +73,19 @@ export default function AdminPage() {
     link.click();
     document.body.removeChild(link);
   };
+  
+  if (!isAdmin) {
+    return (
+      <div className="container py-12 flex items-center justify-center">
+        <Alert variant="destructive" className="max-w-lg">
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You do not have permission to view this page. This area is for administrators only.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
 
   return (
