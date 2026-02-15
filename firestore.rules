@@ -106,14 +106,17 @@ service cloud.firestore {
      * @path /properties/{propertyId}
      */
     match /properties/{propertyId} {
-      // READ rule: Combines all valid read scenarios.
-      // An admin can read anything.
-      // An owner can read their own document.
-      // Anyone can read a document if it is approved.
-      allow read: if isAdmin() || 
-                     (isSignedIn() && isOwner(resource.data.ownerId)) || 
-                     resource.data.isApproved == true;
+      // LIST rule (for collection queries):
+      // Allows listing all properties for admins, or listing only approved properties for everyone else.
+      allow list: if isAdmin()
+                  || request.query.where('isApproved', '==', true);
 
+      // GET rule (for single document reads):
+      // Allows getting a document if you are an admin, an owner, or if the document is approved.
+      allow get: if isAdmin()
+                 || (isSignedIn() && isOwner(resource.data.ownerId))
+                 || resource.data.isApproved == true;
+      
       // CREATE rule: Any authenticated user can create a property for themselves.
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       
