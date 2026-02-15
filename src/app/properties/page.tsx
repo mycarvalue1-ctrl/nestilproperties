@@ -31,7 +31,7 @@ function PropertyList() {
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'properties'), where('listingStatus', '==', 'approved'));
+    return query(collection(firestore, 'properties'), where('isApproved', '==', true));
   }, [firestore]);
 
   const { data: allApprovedProperties, isLoading } = useCollection<Property>(propertiesQuery);
