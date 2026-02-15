@@ -24,6 +24,7 @@ export const properties: Property[] = [
       name: 'Jane Doe',
       phone: '555-123-4567',
       isAgent: false,
+      verified: true,
     },
     amenities: ['Backyard', 'Garage', 'Modern Kitchen', 'Air Conditioning'],
     nearbyPlaces: [
@@ -38,6 +39,7 @@ export const properties: Property[] = [
     featured: true,
     listingStatus: 'approved',
     dateAdded: '2024-07-20T10:00:00Z',
+    isNew: true,
   },
   {
     id: '2',
@@ -58,6 +60,7 @@ export const properties: Property[] = [
       name: 'John Smith',
       phone: '555-987-6543',
       isAgent: true,
+      verified: true,
     },
     amenities: ['City View', 'Gym Access', '24/7 Security', 'Elevator'],
     nearbyPlaces: [
@@ -71,6 +74,7 @@ export const properties: Property[] = [
     featured: true,
     listingStatus: 'approved',
     dateAdded: '2024-07-22T14:30:00Z',
+    isUrgent: true,
   },
   {
     id: '3',
@@ -90,6 +94,7 @@ export const properties: Property[] = [
       name: 'Prestige Properties',
       phone: '555-111-2222',
       isAgent: true,
+      verified: false,
     },
     amenities: ['Private Pool', 'Home Theater', 'Landscaped Garden', 'Gated Community'],
     nearbyPlaces: [
@@ -121,6 +126,7 @@ export const properties: Property[] = [
       name: 'Corporate Realty',
       phone: '555-333-4444',
       isAgent: true,
+      verified: true,
     },
     amenities: ['Ample Parking', 'Conference Rooms', 'High-Speed Internet', 'Reception Area'],
     nearbyPlaces: [
@@ -132,6 +138,7 @@ export const properties: Property[] = [
     featured: false,
     listingStatus: 'pending',
     dateAdded: '2024-07-23T11:00:00Z',
+    isNew: true,
   },
     {
     id: '5',
@@ -151,6 +158,7 @@ export const properties: Property[] = [
         name: 'Emily White',
         phone: '555-222-3333',
         isAgent: false,
+        verified: true,
     },
     amenities: ['Garden', 'Renovated Kitchen', 'Fireplace'],
     nearbyPlaces: [
@@ -164,5 +172,6 @@ export const properties: Property[] = [
     featured: true,
     listingStatus: 'approved',
     dateAdded: '2024-07-24T18:00:00Z',
+    isUrgent: true,
   },
 ];

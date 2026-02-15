@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone } from 'lucide-react';
+import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -27,6 +27,28 @@ export default function PropertyDetailPage({ params }: { params: { id: string } 
             <div className="flex items-center text-muted-foreground text-md gap-2 mt-2">
                 <MapPin className="h-5 w-5" />
                 <span>{property.address}, {property.city}, {property.pincode}</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-4">
+                {property.owner.verified && !property.owner.isAgent && (
+                    <Badge variant="default" className="text-base font-medium">
+                        <BadgeCheck className="mr-1.5 h-5 w-5" /> Verified Owner
+                    </Badge>
+                )}
+                {property.owner.verified && property.owner.isAgent && (
+                    <Badge variant="secondary" className="text-base font-medium">
+                        <BadgeCheck className="mr-1.5 h-5 w-5" /> Verified Agent
+                    </Badge>
+                )}
+                {property.isNew && (
+                    <Badge variant="outline" className="text-base font-medium">
+                        <Sparkles className="mr-1.5 h-5 w-5" /> New Property
+                    </Badge>
+                )}
+                {property.isUrgent && (
+                    <Badge variant="destructive" className="text-base font-medium">
+                        <Flame className="mr-1.5 h-5 w-5" /> Urgent Sale
+                    </Badge>
+                )}
             </div>
         </div>
 

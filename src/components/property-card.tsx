@@ -2,7 +2,7 @@ import type { Property } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { BedDouble, Bath, Expand, MapPin, Heart } from 'lucide-react';
+import { BedDouble, Bath, Expand, MapPin, Heart, BadgeCheck, Sparkles, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
@@ -27,14 +27,38 @@ export function PropertyCard({ property }: PropertyCardProps) {
             <Badge className="absolute top-3 left-3" variant="accent">
               {property.status}
             </Badge>
-             {property.featured && <Badge className="absolute top-3 right-3" variant="secondary">Featured</Badge>}
+             <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
+                {property.featured && <Badge variant="secondary">Featured</Badge>}
+                {property.isNew && (
+                    <Badge variant="outline" className="bg-background/80">
+                        <Sparkles className="mr-1 h-3 w-3" /> New Property
+                    </Badge>
+                )}
+                {property.isUrgent && (
+                    <Badge variant="destructive">
+                        <Flame className="mr-1 h-3 w-3" /> Urgent Sale
+                    </Badge>
+                )}
+             </div>
              <Button size="icon" variant="secondary" className="absolute bottom-3 right-3 rounded-full h-9 w-9 opacity-80 group-hover:opacity-100 transition-opacity">
                 <Heart className="h-5 w-5" />
                 <span className="sr-only">Save to favorites</span>
             </Button>
           </div>
           <div className="p-4 space-y-3">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-wrap items-center gap-2">
+                {property.owner.verified && !property.owner.isAgent && (
+                    <Badge variant="default">
+                        <BadgeCheck className="mr-1 h-4 w-4" /> Verified Owner
+                    </Badge>
+                )}
+                {property.owner.verified && property.owner.isAgent && (
+                    <Badge variant="secondary">
+                        <BadgeCheck className="mr-1 h-4 w-4" /> Verified Agent
+                    </Badge>
+                )}
+            </div>
+            <div className="flex justify-between items-start pt-1">
                 <div>
                     <p className="text-sm font-semibold text-primary">{property.type}</p>
                     <h3 className="text-lg font-bold truncate group-hover:text-primary transition-colors">

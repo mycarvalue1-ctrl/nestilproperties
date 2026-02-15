@@ -14,6 +14,7 @@ export type Property = {
     name: string;
     phone: string;
     isAgent: boolean;
+    verified: boolean;
   };
   amenities: string[];
   nearbyPlaces: {
@@ -27,4 +28,6 @@ export type Property = {
   featured: boolean;
   listingStatus: 'approved' | 'pending' | 'rejected';
   dateAdded: string;
+  isNew?: boolean;
+  isUrgent?: boolean;
 };
