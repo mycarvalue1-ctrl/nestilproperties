@@ -140,22 +140,22 @@ service cloud.firestore {
      * @principle Implements public read for approved content with owner-only writes.
      */
     match /properties/{propertyId} {
-      // Admins have full read/write access.
+      // --- ADMIN ACCESS ---
+      // Admins can perform any action on any property document. This rule is checked first.
       allow read, write: if isAdmin();
 
-      // For non-admins:
+      // --- NON-ADMIN ACCESS ---
+      // These rules are only evaluated if the user is NOT an admin.
+      
+      // Allow reading a document if it's approved OR if the requester owns it.
+      // This also implicitly secures list queries, requiring non-admins to filter by 'isApproved' or 'ownerId'.
+      allow get: if !isAdmin() && (resource.data.isApproved == true || isOwner(resource.data.ownerId));
+      
+      // A non-admin can create a property.
+      allow create: if !isAdmin() && isSignedIn() && request.resource.data.ownerId == request.auth.uid;
 
-      // GET: A document can be read if it's approved OR if the requester owns it.
-      // This rule also implicitly secures LIST queries. A list query will only succeed
-      // if it includes constraints (e.g., `where('isApproved', '==', true)`) that ensure
-      // every potential result document would pass this 'get' rule.
-      allow get: if resource.data.isApproved == true || isOwner(resource.data.ownerId);
-      
-      // CREATE: A user can create a property if they are signed in and set themselves as the owner.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      
-      // UPDATE/DELETE: A user can update or delete a property only if they are the owner.
-      allow update, delete: if isOwner(resource.data.ownerId);
+      // A non-admin can update or delete their own property.
+      allow update, delete: if !isAdmin() && isOwner(resource.data.ownerId);
     }
 
     /**
