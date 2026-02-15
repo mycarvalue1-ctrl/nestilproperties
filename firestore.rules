@@ -1,0 +1,177 @@
+/**
+ * # Firestore Security Rules: PropertyLink
+ *
+ * ## Core Philosophy
+ * This ruleset enforces a mixed security model tailored for a real estate application.
+ * It combines strict user ownership for private data, role-based access for administrators,
+ * and a public-read/owner-write model for shared data like property listings. The primary
+ * goal is to ensure users can only access and manage their own information while allowing
+ * admins to moderate the platform and visitors to browse approved content.
+ *
+ * ## Data Structure
+ * - `/users/{userId}`: Stores private user profiles. Access is restricted to the owner.
+ * - `/users/{userId}/favorite_properties/{favId}`: A user-owned subcollection for their favorites.
+ * - `/roles_admin/{adminId}`: A separate collection for Database-Backed Access Control (DBAC).
+ *   The existence of a user's UID here grants them admin privileges.
+ * - `/properties/{propertyId}`: A public collection of property listings. Listings are
+ *   publicly readable only if approved. Writes are restricted to the property owner or an admin.
+ * - `/amenities/{amenityId}` & `/nearby_place_types/{typeId}`: Public, read-only collections
+ *   for reference data, managed exclusively by administrators.
+ *
+ * ## Key Security Decisions
+ * - **Admin Roles**: Administrator status is determined by the existence of a document in
+ *   the `/roles_admin` collection, providing a secure and explicit way to manage permissions.
+ * - **Public Listings**: The visibility of properties in the public `/properties` collection
+ *   is controlled by an `isApproved` flag within each document. This protects individual
+- *   document reads (`get`), preventing access to unvetted content. Client applications are
+ *   expected to filter `list` queries using `where('isApproved', '==', true)`.
+ * - **User Privacy**: User profiles and their associated data (like favorites) are strictly
+ *   private. Listing users is disallowed to prevent data scraping and enumeration attacks.
+ *
+ * ## Denormalization for Authorization
+ * - **Property Ownership**: Each document in `/properties` contains a denormalized `ownerId`
+ *   field. This allows security rules to verify ownership for write operations directly and
+ *   efficiently, without needing a costly `get()` to another collection.
+ *
+ * ## Structural Segregation
+ * - User-specific data (`favorite_properties`) is nested under the `/users/{userId}` path,
+ *   naturally isolating it and simplifying ownership rules.
+ * - Publicly readable but admin-managed data (`amenities`, `nearby_place_types`) is placed
+ *   in separate top-level collections to enforce a simple, uniform security policy.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the authenticated user's UID matches the provided userId.
+     * This is the foundation of the user-ownership model.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the user is an administrator by verifying the existence
+     * of their UID in the dedicated roles_admin collection.
+     */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    // ------------------------------------------------------------------------
+    // User Data Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description A user can create, read, and manage their own profile document.
+     * @path /users/{userId}
+     * @allow (create) An authenticated user with UID 'user_abc' creating their own document at /users/user_abc.
+     * @deny (get) User 'user_xyz' trying to read the document at /users/user_abc.
+     * @deny (list) Any user trying to list all documents in the /users collection.
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description A user can manage their own list of favorite properties.
+     * @path /users/{userId}/favorite_properties/{favoritePropertyId}
+     * @allow (create) User 'user_abc' creating a new favorite in their own subcollection.
+     * @deny (list) User 'user_xyz' trying to list favorites for 'user_abc'.
+     * @principle Enforces path-based ownership for user-specific subcollections.
+     */
+    match /users/{userId}/favorite_properties/{favoritePropertyId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    // ------------------------------------------------------------------------
+    // Administrative Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Only administrators can view or manage the list of admins.
+     * @path /roles_admin/{adminId}
+     * @allow (get) An admin reading another admin's document in this collection.
+     * @deny (list) A non-admin user trying to list all administrators.
+     * @deny (create) A non-admin user trying to add themselves to the admin list.
+     * @principle Secures administrative roles by restricting access to the roles collection itself.
+     */
+    match /roles_admin/{adminId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    // ------------------------------------------------------------------------
+    // Application Content Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Property listings can be listed by anyone. Individual documents can only be read if they are approved,
+     * unless the requester is the owner or an admin. Writes are restricted to the owner or an admin.
+     * @path /properties/{propertyId}
+     * @allow (list) Any user, signed-in or anonymous, listing properties (client must filter for 'isApproved').
+     * @allow (get) Any user reading a property where `isApproved == true`.
+     * @allow (update) The property's owner (matching `ownerId`) or an admin updating the document.
+     * @deny (get) A regular user trying to read a property where `isApproved == false`.
+     * @deny (update) A user trying to update a property they do not own.
+     * @principle Implements public read for approved content with owner-only writes.
+     */
+    match /properties/{propertyId} {
+      allow get: if (resource.data.isApproved == true) || isOwner(resource.data.ownerId) || isAdmin();
+      allow list: if true;
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if (isOwner(resource.data.ownerId) || isAdmin()) && resource != null && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if (isOwner(resource.data.ownerId) || isAdmin()) && resource != null;
+    }
+
+    /**
+     * @description The list of available amenities is public and read-only for non-admins.
+     * @path /amenities/{amenityId}
+     * @allow (list) Any user listing all available amenities for display in a UI.
+     * @deny (create) A non-admin user trying to add a new amenity type.
+     * @principle Provides public, static reference data while securing it against unauthorized changes.
+     */
+    match /amenities/{amenityId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description The list of nearby place types is public and read-only for non-admins.
+     * @path /nearby_place_types/{nearbyPlaceTypeId}
+     * @allow (list) Any user listing all place types for search filtering.
+     * @deny (create) A non-admin user trying to add a new place type like 'Airport'.
+     * @principle Provides public, static reference data while securing it against unauthorized changes.
+     */
+    match /nearby_place_types/{nearbyPlaceTypeId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+  }
+}

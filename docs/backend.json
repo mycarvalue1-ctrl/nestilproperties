@@ -1,0 +1,382 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the PropertyLink application, including visitors, property owners/agents, and administrators.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for communication (not for authentication credentials).",
+          "format": "email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "A public-facing name for the user, especially for owners/agents, used for contact."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The user's phone number, primarily for property owners/agents to be contacted by interested parties."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the application, determining their permissions ('Visitor', 'OwnerAgent', 'Admin')."
+        },
+        "isBanned": {
+          "type": "boolean",
+          "description": "Indicates whether the user has been banned by an administrator due to spam or misconduct."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Property": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Property",
+      "type": "object",
+      "description": "Represents a real estate property listed for rent, sale, or lease in the PropertyLink application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Property entity."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to the User who owns or is acting as an agent for this property. (Relationship: User 1:N Property)"
+        },
+        "title": {
+          "type": "string",
+          "description": "The main title or headline for the property listing."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the property, highlighting its features and benefits."
+        },
+        "listingType": {
+          "type": "string",
+          "description": "The type of listing for the property (e.g., 'rent', 'sale', 'lease')."
+        },
+        "propertyType": {
+          "type": "string",
+          "description": "The specific type of real estate property (e.g., 'house', 'flat', 'land', 'commercial')."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the property (for sale) or monthly rent/lease amount."
+        },
+        "areaSqFt": {
+          "type": "number",
+          "description": "The total area of the property in square feet."
+        },
+        "address": {
+          "type": "string",
+          "description": "The full street address of the property, including street number and name."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city where the property is located, used for search and filtering."
+        },
+        "areaOrColony": {
+          "type": "string",
+          "description": "The specific neighborhood, area, or colony within the city, crucial for local filtering."
+        },
+        "pincode": {
+          "type": "string",
+          "description": "The postal code of the property's location, used for detailed location filtering."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The geographical latitude coordinate of the property, for map display."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The geographical longitude coordinate of the property, for map display."
+        },
+        "bhk": {
+          "type": "number",
+          "description": "Number of Bedrooms, Hall, and Kitchen units in the property (e.g., 2 for 2BHK), used for filtering."
+        },
+        "furnishedStatus": {
+          "type": "string",
+          "description": "The furnishing status of the property (e.g., 'furnished', 'semi-furnished', 'unfurnished'), used for filtering."
+        },
+        "photos": {
+          "type": "array",
+          "description": "An array of URLs pointing to photos of the property for the gallery.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "videos": {
+          "type": "array",
+          "description": "An array of URLs pointing to videos of the property for multimedia presentation.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isApproved": {
+          "type": "boolean",
+          "description": "Flag indicating whether the property listing has been approved by an administrator for public view."
+        },
+        "isFeatured": {
+          "type": "boolean",
+          "description": "Flag indicating whether the property is promoted as a featured listing by an administrator."
+        },
+        "postedAt": {
+          "type": "string",
+          "description": "Timestamp when the property listing was originally created and posted.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the property listing was last modified or updated.",
+          "format": "date-time"
+        },
+        "amenityIds": {
+          "type": "array",
+          "description": "References to Amenities associated with this property. (Relationship: Amenity N:N Property)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nearbyPlaceTypeIds": {
+          "type": "array",
+          "description": "References to NearbyPlaceTypes relevant to this property's location (e.g., schools, hospitals). (Relationship: NearbyPlaceType N:N Property)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "listingType",
+        "propertyType",
+        "price",
+        "areaSqFt",
+        "address",
+        "city",
+        "pincode",
+        "isApproved",
+        "postedAt",
+        "updatedAt"
+      ]
+    },
+    "Amenity": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Amenity",
+      "type": "object",
+      "description": "Represents a specific feature or facility available at or with a property (e.g., parking, gym, swimming pool).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Amenity entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the amenity (e.g., 'Swimming Pool', 'Gym', 'Covered Parking')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief explanation or more details about the amenity."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "NearbyPlaceType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NearbyPlaceType",
+      "type": "object",
+      "description": "Represents a category of nearby point of interest that a property might be close to (e.g., 'School', 'Hospital', 'Bus Stop').",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the NearbyPlaceType entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The descriptive name of the nearby place type (e.g., 'School', 'Hospital', 'Bus Stop', 'Shopping Mall')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description explaining what this category of nearby place represents."
+        },
+        "iconUrl": {
+          "type": "string",
+          "description": "Optional URL to an icon image representing this nearby place type for UI display.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "FavoriteProperty": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FavoriteProperty",
+      "type": "object",
+      "description": "Represents a property that a user has marked as a favorite, establishing a many-to-many relationship between User and Property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FavoriteProperty entity (the relationship instance)."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who favorited the property. (Relationship: User N:N Property via FavoriteProperty)"
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to the Property that was favorited. (Relationship: User N:N Property via FavoriteProperty)"
+        },
+        "favoritedAt": {
+          "type": "string",
+          "description": "Timestamp when the property was marked as favorite by the user.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "propertyId",
+        "favoritedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information, including their display name, email, and general role. This collection is primarily for users to manage their own profiles. Includes denormalized 'role' for general app logic, but not critical authorization.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user, corresponding to Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "roles_admin/{adminId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "A top-level collection used for Database-Backed Access Control (DBAC) to designate administrators. The existence of a document here (where adminId is the user's UID) grants administrator privileges in security rules. Only admins can create/manage these entries, typically via backend functions.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique ID of a user designated as an administrator."
+            }
+          ]
+        }
+      },
+      {
+        "path": "properties/{propertyId}",
+        "definition": {
+          "entityName": "Property",
+          "schema": {
+            "$ref": "#/backend/entities/Property"
+          },
+          "description": "Stores all property listings (for rent, sale, lease). Includes denormalized 'ownerId' for authorization independence and 'isApproved' for public visibility control, supporting QAPs for list operations. Admins have full access, owners can manage their own, and visitors can read approved listings.",
+          "params": [
+            {
+              "name": "propertyId",
+              "description": "The unique ID of the property listing."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}/favorite_properties/{favoritePropertyId}",
+        "definition": {
+          "entityName": "FavoriteProperty",
+          "schema": {
+            "$ref": "#/backend/entities/FavoriteProperty"
+          },
+          "description": "A subcollection under each user, storing properties that a specific user has marked as favorites. The 'userId' in the path ensures strong path-based ownership, making security rules simple and efficient for user-specific data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user who favorited the property."
+            },
+            {
+              "name": "favoritePropertyId",
+              "description": "The unique ID for the specific favorite property entry (often the propertyId itself or a unique favorite ID)."
+            }
+          ]
+        }
+      },
+      {
+        "path": "amenities/{amenityId}",
+        "definition": {
+          "entityName": "Amenity",
+          "schema": {
+            "$ref": "#/backend/entities/Amenity"
+          },
+          "description": "A top-level collection for static, globally accessible definitions of amenities that can be associated with properties. Publicly readable by all, writable only by administrators.",
+          "params": [
+            {
+              "name": "amenityId",
+              "description": "The unique ID of the amenity."
+            }
+          ]
+        }
+      },
+      {
+        "path": "nearby_place_types/{nearbyPlaceTypeId}",
+        "definition": {
+          "entityName": "NearbyPlaceType",
+          "schema": {
+            "$ref": "#/backend/entities/NearbyPlaceType"
+          },
+          "description": "A top-level collection for static, globally accessible definitions of nearby place types (e.g., 'School', 'Hospital'). Publicly readable by all, writable only by administrators.",
+          "params": [
+            {
+              "name": "nearbyPlaceTypeId",
+              "description": "The unique ID of the nearby place type."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore data structure for PropertyLink prioritizes Authorization Independence, Structural Segregation, and Query-Aware Security (QAPs) to ensure a secure, scalable, and debuggable system. \n\n**Authorization Independence via Denormalization:**\n\n1.  **Properties (`/properties/{propertyId}`):** Each `Property` document will include an `ownerId` field. This denormalizes the ownership information directly into the property document. Security rules for property access (read, update, delete) can then directly check `request.auth.uid == resource.data.ownerId` or `exists(/roles_admin/$(request.auth.uid))` without needing to perform expensive and dependency-prone `get()` calls to a parent `User` document. This allows for atomic operations (e.g., creating a property) and prevents rule evaluation complexities.\n2.  **Favorite Properties (`/users/{userId}/favorite_properties/{favoritePropertyId}`):** By embedding `FavoriteProperty` under a user-specific path, `userId` is available directly in the path wildcard `{userId}`. This naturally aligns with `request.auth.uid == userId`, ensuring that a user can only manage their own favorited properties without `get()` calls.\n\n**Query-Aware Security (QAPs) for List Operations:**\n\n1.  **Public Properties (`/properties/{propertyId}`):** Properties in this collection are globally accessible to visitors for searching, but only if they are approved by an administrator. The `isApproved` field within each `Property` document is crucial here. For visitors to list properties, Firestore security rules will enforce `allow list: if resource.data.isApproved == true;`. This mandates that any client-side query performing a `list` operation (e.g., displaying all properties on the home page or search results) *must* include `where('isApproved', '==', true)`. If a query omits this filter, the rule will deny the operation, preventing unauthorized data exposure. Admins, however, will have broader `read` access to all properties, regardless of their approval status, enabled by `exists(/roles_admin/$(request.auth.uid))`. This ensures public visibility is strictly controlled while maintaining admin oversight.\n2.  **Structural Segregation:** Dedicated top-level collections like `/amenities` and `/nearby_place_types` provide publicly readable, static reference data. This segregation ensures that these commonly accessed entities have a simple and homogeneous security posture (public read, admin write), simplifying rules and preventing mixed access requirements within a single collection.\n3.  **DBAC (Database-Backed Access Control):** The `/roles_admin/{adminId}` collection is used for strict admin role verification. The mere existence of a document at `/roles_admin/$(request.auth.uid)` grants admin privileges. This is more explicit and secure than relying on a `role` field within the `users/{userId}` document for critical authorization, as it separates concerns and enables simpler rule logic for admin checks."
+  }
+}
