@@ -52,14 +52,14 @@ const amenitiesList = [
 
 // Zod schema for form validation
 const formSchema = z.object({
-  propertyType: z.string({ required_error: "Property type is required." }),
+  propertyType: z.string({ required_error: "Property type is required." }).min(1, "Property type is required."),
   listingFor: z.enum(['Rent', 'Sale', 'Lease'], { required_error: "Please select a listing type." }),
   title: z.string().min(10, "Title must be at least 10 characters.").max(100),
   description: z.string().min(50, "Description must be at least 50 characters."),
   
   state: z.string().optional(),
-  city: z.string({ required_error: "City is required." }),
-  locality: z.string({ required_error: "Area/Locality is required." }),
+  city: z.string({ required_error: "City is required." }).min(1, "City is required."),
+  locality: z.string({ required_error: "Area/Locality is required." }).min(1, "Area/Locality is required."),
   landmark: z.string().optional(),
   pincode: z.string().length(6, "Pincode must be 6 digits."),
   
@@ -72,7 +72,7 @@ const formSchema = z.object({
 
   amenities: z.array(z.string()).optional(),
 
-  ownerName: z.string({ required_error: "Owner name is required." }),
+  ownerName: z.string({ required_error: "Owner name is required." }).min(1, "Owner name is required."),
   mobile: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit mobile number."),
   whatsAppAvailable: z.boolean().default(true),
   postedBy: z.enum(['Owner', 'Agent', 'Builder'], { required_error: "Please specify who is posting." }),
@@ -107,10 +107,27 @@ export default function PostPropertyPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      propertyType: '',
+      listingFor: 'Rent',
+      title: '',
+      description: '',
       state: 'Andhra Pradesh',
+      city: '',
+      locality: '',
+      landmark: '',
+      pincode: '',
+      price: '' as any,
       negotiable: 'No',
-      whatsAppAvailable: true,
+      maintenance: '' as any,
+      deposit: '' as any,
+      availableFrom: undefined,
+      preferredTenants: 'Anyone',
       amenities: [],
+      ownerName: '',
+      mobile: '',
+      whatsAppAvailable: true,
+      postedBy: 'Owner',
+      details: {},
     },
   });
 
