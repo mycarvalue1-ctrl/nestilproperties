@@ -21,6 +21,7 @@ import { properties, users } from "@/lib/data";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye } from "lucide-react";
 import type { User } from "@/lib/types";
 import Link from "next/link";
+import { format } from "date-fns";
 
 export default function AdminPage() {
   const pendingProperties = properties.filter(
@@ -53,7 +54,7 @@ export default function AdminPage() {
       ].map(escapeCsvCell).join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-t8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const today = new Date().toISOString().split('T')[0];
@@ -111,7 +112,7 @@ export default function AdminPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {new Date(user.dateJoined).toLocaleDateString()}
+                    {format(new Date(user.dateJoined), 'dd/MM/yyyy')}
                   </TableCell>
                   <TableCell>{user.listings}</TableCell>
                   <TableCell className="text-right">
@@ -153,7 +154,7 @@ export default function AdminPage() {
                     <TableCell className="font-medium">{prop.title}</TableCell>
                     <TableCell className="hidden sm:table-cell">{prop.owner.name}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {new Date(prop.dateAdded).toLocaleDateString()}
+                      {format(new Date(prop.dateAdded), 'dd/MM/yyyy')}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
