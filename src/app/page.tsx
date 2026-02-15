@@ -35,10 +35,10 @@ export default function Home() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative z-10 text-center px-4">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-            Find Your Dream Property
+            Your Next Home is Waiting
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-lg text-white/90">
-            The best place to find your next home. We have a wide range of properties for you to choose from.
+            Discover a place you'll love to call home, from cozy village houses to comfortable town apartments.
           </p>
           <div className="mt-8 max-w-2xl mx-auto">
             <div className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-lg shadow-2xl">
