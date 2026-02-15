@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { PropertyCard, PropertyCardSkeleton } from '@/components/property-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,24 +16,42 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 
 export default function Home() {
   const firestore = useFirestore();
 
-  const recentPropertiesQuery = useMemoFirebase(() => {
+  // Fetch all approved properties
+  const approvedPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, 'properties'),
-      where('isApproved', '==', true),
-      orderBy('dateAdded', 'desc'),
-      limit(3)
+      where('isApproved', '==', true)
     );
   }, [firestore]);
 
-  const { data: recentProperties, isLoading: recentLoading } =
-    useCollection<Property>(recentPropertiesQuery);
+  const { data: approvedProperties, isLoading: propertiesLoading } =
+    useCollection<Property>(approvedPropertiesQuery);
+
+  // Perform sorting and slicing on the client-side
+  const { recentProperties, isLoading } = useMemo(() => {
+    if (propertiesLoading) {
+      return { recentProperties: [], isLoading: true };
+    }
+    if (!approvedProperties) {
+      return { recentProperties: [], isLoading: false };
+    }
+
+    // Sort by dateAdded in descending order
+    const sorted = [...approvedProperties].sort((a, b) => 
+      new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
+    );
+    
+    // Get the first 3
+    return { recentProperties: sorted.slice(0, 3), isLoading: false };
+  }, [approvedProperties, propertiesLoading]);
+
 
   const localAreas =
     locationData[0]?.districts
@@ -93,7 +112,7 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {recentLoading ? (
+            {isLoading ? (
               <>
                 <PropertyCardSkeleton />
                 <PropertyCardSkeleton />
