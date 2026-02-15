@@ -1,6 +1,8 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, CalendarIcon, Sparkles, MapPin } from 'lucide-react';
+import { Upload, CalendarIcon, Sparkles, MapPin, X } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
@@ -71,6 +73,7 @@ const formSchema = z.object({
   preferredTenants: z.enum(['Family', 'Bachelor', 'Anyone']).optional(),
 
   amenities: z.array(z.string()).optional(),
+  photos: z.array(z.any()).max(10, 'You can upload up to 10 photos.').optional(),
 
   ownerName: z.string({ required_error: "Owner name is required." }).min(1, "Owner name is required."),
   mobile: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit mobile number."),
@@ -115,6 +118,8 @@ const FormSection = ({ title, description, children, className }: { title: strin
 
 export default function PostPropertyPage() {
   const { toast } = useToast();
+  const [isDragging, setIsDragging] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -134,6 +139,7 @@ export default function PostPropertyPage() {
       availableFrom: undefined,
       preferredTenants: 'Anyone',
       amenities: [],
+      photos: [],
       ownerName: '',
       mobile: '',
       whatsAppAvailable: true,
@@ -175,6 +181,50 @@ export default function PostPropertyPage() {
       console.error("Could not parse location from localStorage", error);
     }
   }, [form]);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+  };
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>, field: any) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          const filesArray = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+          if (filesArray.length === 0) {
+              toast({
+                  variant: "destructive",
+                  title: "Invalid file type",
+                  description: "Please upload only image files.",
+              });
+              return;
+          }
+
+          const currentFiles = field.value || [];
+          if (currentFiles.length + filesArray.length > 10) {
+              toast({
+                  variant: "destructive",
+                  title: "Upload limit exceeded",
+                  description: "You can upload a maximum of 10 photos.",
+              });
+          } else {
+              field.onChange([...currentFiles, ...filesArray]);
+          }
+          e.dataTransfer.clearData();
+      }
+  };
 
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -444,11 +494,83 @@ export default function PostPropertyPage() {
           </FormSection>
 
           <FormSection title="Photos & Media" description="Listings with good quality photos get 5x more responses.">
-             <div className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary">
-                <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-2"/>
-                <p className="font-semibold">Click or drag files here to upload</p>
-                <p className="text-sm text-muted-foreground">Upload up to 10 photos. Max 1GB per file.</p>
-            </div>
+            <FormField
+              control={form.control}
+              name="photos"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <div>
+                      <Label
+                        htmlFor="photo-upload"
+                        className={cn(
+                          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary block transition-colors",
+                          isDragging && "border-primary bg-primary/10"
+                        )}
+                        onDragEnter={handleDragEnter}
+                        onDragLeave={handleDragLeave}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, field)}
+                      >
+                        <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-2"/>
+                        <p className="font-semibold">Click or drag files here to upload</p>
+                        <p className="text-sm text-muted-foreground">Upload up to 10 photos. Max 1GB per file.</p>
+                      </Label>
+                      <Input
+                        id="photo-upload"
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            const filesArray = Array.from(e.target.files);
+                            const currentFiles = field.value || [];
+                            if (currentFiles.length + filesArray.length > 10) {
+                              toast({
+                                variant: "destructive",
+                                title: "Upload limit exceeded",
+                                description: "You can upload a maximum of 10 photos.",
+                              });
+                            } else {
+                              field.onChange([...currentFiles, ...filesArray]);
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                  {field.value && field.value.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                      {field.value.map((file: File, index: number) => (
+                        <div key={index} className="relative group">
+                          <Image
+                            src={URL.createObjectURL(file)}
+                            alt={`preview ${index}`}
+                            width={150}
+                            height={150}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              const newFiles = field.value?.filter((_: any, i: number) => i !== index);
+                              field.onChange(newFiles);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </FormItem>
+              )}
+            />
           </FormSection>
 
            <FormSection title="Owner Details">
