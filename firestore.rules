@@ -43,18 +43,17 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // LIST: Allows three types of collection queries.
-      // 1. Admins can list all properties without filters.
-      // 2. Public users can list properties IF they filter for approved ones.
-      // 3. Logged-in users can list their own properties by filtering on ownerId.
-      allow list: if isAdmin() ||
-                     request.query.where('isApproved', '==', true) ||
-                     (isSignedIn() && request.query.where('ownerId', '==', request.auth.uid));
+      // LIST: A query on the properties collection is allowed if, FOR EVERY DOCUMENT IN THE RESULT:
+      // 1. The user is an admin.
+      // 2. OR the property is approved for public viewing.
+      // 3. OR the user is the owner of the property.
+      // This forces unauthenticated queries to include `where('isApproved', '==', true)`.
+      allow list: if isAdmin() || (resource.data.isApproved == true) || isOwner(resource.data.ownerId);
 
-      // GET: Allows reading a single document.
-      // 1. Admins can get any property.
-      // 2. Owners can get their own property.
-      // 3. Anyone can get a property IF it is approved.
+      // GET: Allows reading a single document if:
+      // 1. The user is an admin.
+      // 2. OR the user is the owner.
+      // 3. OR the property is approved.
       allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
 
       // CREATE: Any signed-in user can create a property for themselves.
