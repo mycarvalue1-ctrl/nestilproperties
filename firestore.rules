@@ -18,14 +18,12 @@
  *
  * ## Key Security Decisions
  * - **Admin Roles**: Administrator status is determined by a user's email address being
- *   `mycarvalue1@gmail.com`. This provides a secure and explicit way to manage permissions
- *   for a designated administrator.
- * - **Public Listings**: The visibility of properties in the public `/properties` collection
- *   is controlled by an `isApproved` flag within each document. This protects individual
- *   document reads (`get`), preventing access to unvetted content. Client applications are
+ *   `mycarvalue1@gmail.com`. For this to take effect, the admin's email MUST be verified.
+ * - **Public Listings**: The visibility of properties is controlled by an `isApproved` flag.
+ *   This protects individual document reads (`get`). Client applications for non-admins are
  *   expected to filter `list` queries using `where('isApproved', '==', true)`.
- * - **User Privacy**: User profiles and their associated data (like favorites) are strictly
- *   private. Listing users is disallowed for non-admins to prevent data scraping and enumeration attacks.
+ * - **User Privacy**: User profiles and their associated data are strictly private. Listing
+ *   all users is disallowed for non-admins to prevent data scraping.
  *
  * ## Denormalization for Authorization
  * - **Property Ownership**: Each document in `/properties` contains a denormalized `ownerId`
@@ -63,11 +61,11 @@ service cloud.firestore {
 
     /**
      * Checks if the user is the designated administrator.
-     * IMPORTANT: For production, it's highly recommended to also check
-     * that the admin user's email is verified (request.auth.token.email_verified == true).
+     * The admin's email MUST be verified for this to return true.
      */
     function isAdmin() {
       return isSignedIn() &&
+             request.auth.token.email_verified == true &&
              request.auth.token.email == 'mycarvalue1@gmail.com';
     }
 
@@ -83,7 +81,7 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if (isOwner(userId) || isAdmin()) && resource != null && request.resource.data.id == resource.data.id;
+      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.id == resource.data.id;
       allow delete: if isAdmin() && resource != null;
     }
 
@@ -112,7 +110,7 @@ service cloud.firestore {
       // --- NON-ADMIN ACCESS ---
       
       // Allow reading a document if it's approved OR if the requester owns it.
-      // This also implicitly secures list queries for non-admins.
+      // This also implicitly secures list queries for non-admins if they filter by `isApproved == true`.
       allow get: if !isAdmin() && (resource.data.isApproved == true || isOwner(resource.data.ownerId));
       
       // A signed-in non-admin can create a property for themselves.
@@ -121,6 +119,7 @@ service cloud.firestore {
       // A non-admin owner can update or delete their own property.
       allow update, delete: if !isAdmin() && isOwner(resource.data.ownerId);
     }
+
 
     /**
      * @description The list of available amenities is public and read-only for non-admins.
