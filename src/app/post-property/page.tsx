@@ -51,7 +51,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 
 const amenitiesList = [
-  'Parking', 'Lift', 'Borewell Water', 'Municipal Water', 'Power Backup',
+  'Lift', 'Borewell Water', 'Municipal Water', 'Power Backup',
   'Security', 'CCTV', 'Gated Community', 'Balcony', 'Terrace Access', 'Pets Allowed'
 ];
 
@@ -76,6 +76,8 @@ const formSchema = z.object({
   preferredTenants: z.enum(['Family', 'Bachelor', 'Anyone']).optional(),
 
   amenities: z.array(z.string()).optional(),
+  nonVegAllowed: z.boolean().default(true),
+  vehicleParking: z.string().optional(),
   photos: z.array(z.any()).max(10, 'You can upload up to 10 photos.').optional(),
 
   ownerName: z.string({ required_error: "Owner name is required." }).min(1, "Owner name is required."),
@@ -147,6 +149,8 @@ export default function PostPropertyPage() {
       availableFrom: undefined,
       preferredTenants: 'Anyone',
       amenities: [],
+      nonVegAllowed: true,
+      vehicleParking: 'None',
       photos: [],
       ownerName: '',
       mobile: '',
@@ -309,6 +313,8 @@ export default function PostPropertyPage() {
 
         // Amenities
         amenities: values.amenities || [],
+        nonVegAllowed: values.nonVegAllowed,
+        vehicleParking: values.vehicleParking,
         
         // Photos
         photos: photoURLs.length > 0 ? photoURLs : ['https://picsum.photos/seed/property/800/600'],
@@ -613,6 +619,38 @@ export default function PostPropertyPage() {
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+                <FormField
+                    control={form.control}
+                    name="vehicleParking"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Vehicle Parking</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select parking details" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                            {['None', '1 Car', '2 Cars', '1 Bike', '2 Bikes', '1 Car & 1 Bike'].map(type => 
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                            )}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField
+                    control={form.control}
+                    name="nonVegAllowed"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm h-full">
+                            <div className="space-y-0.5">
+                                <FormLabel>Non-Veg Allowed?</FormLabel>
+                                <FormDescription className="text-xs">Can tenants cook/consume non-veg food?</FormDescription>
+                            </div>
+                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange}/></FormControl>
+                        </FormItem>
+                    )}
+                />
+            </div>
           </FormSection>
 
           <FormSection title="Photos & Media" description="Listings with good quality photos get 5x more responses.">

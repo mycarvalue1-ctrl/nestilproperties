@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye } from 'lucide-react';
+import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SimilarProperties } from '@/components/similar-properties';
 import { useState } from 'react';
@@ -190,7 +190,7 @@ export default function PropertyDetailPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6 space-y-4">
-                       <div className="flex justify-around items-center text-center">
+                       <div className="flex justify-around items-center text-center flex-wrap gap-x-4 gap-y-6">
                           <div>
                             <BedDouble className="h-6 w-6 mx-auto text-primary" />
                             <p className="font-bold">{property.beds}</p>
@@ -206,6 +206,20 @@ export default function PropertyDetailPage() {
                             <p className="font-bold">{property.areaSqFt.toLocaleString('en-IN')}</p>
                              <p className="text-xs text-muted-foreground">sqft</p>
                           </div>
+                           {property.vehicleParking && property.vehicleParking !== 'None' && (
+                            <div>
+                                <Car className="h-6 w-6 mx-auto text-primary" />
+                                <p className="font-bold">{property.vehicleParking}</p>
+                                <p className="text-xs text-muted-foreground">Parking</p>
+                            </div>
+                          )}
+                          {property.nonVegAllowed !== undefined && (
+                              <div>
+                              <Fish className="h-6 w-6 mx-auto text-primary" />
+                              <p className="font-bold">{property.nonVegAllowed ? 'Allowed' : 'Not Allowed'}</p>
+                              <p className="text-xs text-muted-foreground">Non-Veg</p>
+                              </div>
+                          )}
                         </div>
                     </CardContent>
                 </Card>

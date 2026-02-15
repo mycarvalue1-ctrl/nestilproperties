@@ -18,6 +18,8 @@ export type Property = {
     verified: boolean;
   };
   amenities: string[];
+  nonVegAllowed?: boolean;
+  vehicleParking?: string;
   nearbyPlaces: {
     name: string;
     distance: string;

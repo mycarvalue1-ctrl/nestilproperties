@@ -152,12 +152,20 @@
           "description": "Timestamp when the property listing was last modified or updated.",
           "format": "date-time"
         },
-        "amenityIds": {
+        "amenities": {
           "type": "array",
-          "description": "References to Amenities associated with this property. (Relationship: Amenity N:N Property)",
+          "description": "A list of amenities available at the property.",
           "items": {
             "type": "string"
           }
+        },
+        "nonVegAllowed": {
+          "type": "boolean",
+          "description": "Flag indicating if non-vegetarian food is allowed in the property."
+        },
+        "vehicleParking": {
+          "type": "string",
+          "description": "Details about the vehicle parking capacity (e.g., '1 Car', '2 Bikes')."
         },
         "nearbyPlaceTypeIds": {
           "type": "array",
