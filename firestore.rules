@@ -18,7 +18,8 @@
  *
  * ## Key Security Decisions
  * - **Admin Roles**: Administrator status is determined by a user's email address being
- *   `mycarvalue1@gmail.com`. For this to take effect, the admin's email MUST be verified.
+ *   `mycarvalue1@gmail.com`. For development, email verification is NOT required, but
+ *   it should be re-enabled for production by adding `request.auth.token.email_verified == true`.
  * - **Public Listings**: The visibility of properties is controlled by an `isApproved` flag.
  *   This protects individual document reads (`get`). Client applications for non-admins are
  *   expected to filter `list` queries using `where('isApproved', '==', true)`.
@@ -61,11 +62,10 @@ service cloud.firestore {
 
     /**
      * Checks if the user is the designated administrator.
-     * The admin's email MUST be verified for this to return true.
+     * IMPORTANT: For production, re-enable `request.auth.token.email_verified == true`.
      */
     function isAdmin() {
       return isSignedIn() &&
-             request.auth.token.email_verified == true &&
              request.auth.token.email == 'mycarvalue1@gmail.com';
     }
 
