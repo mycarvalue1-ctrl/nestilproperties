@@ -1,151 +1,67 @@
-/**
- * # Firestore Security Rules: PropertyLink
- *
- * ## Core Philosophy
- * This ruleset enforces a mixed security model tailored for a real estate application.
- * It combines strict user ownership for private data, role-based access for administrators,
- * and a public-read/owner-write model for shared data like property listings. The primary
- * goal is to ensure users can only access and manage their own information while allowing
- * admins to moderate the platform and visitors to browse approved content.
- *
- * ## Data Structure
- * - `/users/{userId}`: Stores private user profiles. Access is restricted to the owner.
- * - `/users/{userId}/favorite_properties/{favId}`: A user-owned subcollection for their favorites.
- * - `/properties/{propertyId}`: A public collection of property listings. Listings are
- *   publicly readable only if approved. Writes are restricted to the property owner or an admin.
- * - `/amenities/{amenityId}` & `/nearby_place_types/{typeId}`: Public, read-only collections
- *   for reference data, managed exclusively by administrators.
- *
- * ## Key Security Decisions
- * - **Admin Roles**: Administrator status is determined by the user's unique ID (UID).
- *   This is a more secure and reliable method than checking email.
- * - **Public Listings**: The visibility of properties is controlled by an `isApproved` flag.
- *   This is the cornerstone of public access. Client queries for public listings MUST
- *   filter by `where('isApproved', '==', true)` for `list` operations to succeed.
- * - **User Privacy**: User profiles and their associated data are strictly private. Listing
- *   all users is disallowed for non-admins to prevent data scraping.
- *
- * ## Denormalization for Authorization
- * - **Property Ownership**: Each document in `/properties` contains a denormalized `ownerId`
- *   field. This allows security rules to verify ownership for write operations directly and
- *   efficiently, without needing a costly `get()` to another collection.
- *
- * ## Structural Segregation
- * - User-specific data (`favorite_properties`) is nested under the `/users/{userId}` path,
- *   naturally isolating it and simplifying ownership rules.
- * - Publicly readable but admin-managed data (`amenities`, `nearby_place_types`) is placed
- *   in separate top-level collections to enforce a simple, uniform security policy.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ------------------------------------------------------------------------
-    // Helper Functions
-    // ------------------------------------------------------------------------
-
-    /**
-     * Checks if the user is authenticated.
-     */
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the authenticated user's UID matches the provided userId.
-     * This is the foundation of the user-ownership model.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * Checks if the user is the designated administrator by their UID.
-     * This is more secure and reliable than checking by email.
-     */
+    // Admin check using the specific UID provided by the user.
     function isAdmin() {
       return isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
 
-    // ------------------------------------------------------------------------
-    // User Data Rules
-    // ------------------------------------------------------------------------
-
-    /**
-     * @description A user can create, read, and manage their own profile document. Admins have full access.
-     * @path /users/{userId}
-     */
+    // User profile rules
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if (isOwner(userId) || isAdmin()) && request.resource.data.id == resource.data.id;
-      allow delete: if isAdmin() && resource != null;
+      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.id == userId;
+      allow update: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description A user can manage their own list of favorite properties.
-     * @path /users/{userId}/favorite_properties/{favoritePropertyId}
-     */
+    // Favorite properties rules (user-owned subcollection)
     match /users/{userId}/favorite_properties/{favoritePropertyId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // ------------------------------------------------------------------------
-    // Application Content Rules
-    // ------------------------------------------------------------------------
-
+    // Properties collection rules
     match /properties/{propertyId} {
+      // LIST: Allows three types of collection queries.
+      // 1. Admins can list all properties without filters.
+      // 2. Public users can list properties IF they filter for approved ones.
+      // 3. Logged-in users can list their own properties by filtering on ownerId.
+      allow list: if isAdmin() ||
+                     request.query.where('isApproved', '==', true) ||
+                     (isSignedIn() && request.query.where('ownerId', '==', request.auth.uid));
 
-      // ---------------------------
-      // LIST (collection queries)
-      // ---------------------------
-      // Public users may ONLY query approved listings. Admins can list all.
-      // Owners can list their own properties.
-      allow list: if isAdmin()
-                  || request.query.where('isApproved', '==', true)
-                  || (isSignedIn() && request.query.where('ownerId', '==', request.auth.uid));
-    
-      // ---------------------------
-      // GET (single document read)
-      // ---------------------------
-      // Admins and owners can get any of their docs. Public can get approved docs.
-      allow get: if isAdmin()
-                 || (isSignedIn() && isOwner(resource.data.ownerId))
-                 || resource.data.isApproved == true;
-    
-      // ---------------------------
-      // CREATE
-      // ---------------------------
-      // Any signed-in user can create a property, but they must be the owner.
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerId == request.auth.uid;
-    
-      // ---------------------------
-      // UPDATE / DELETE
-      // ---------------------------
-      // Only the owner or an admin can update/delete.
-      allow update, delete: if isAdmin()
-                            || (isSignedIn() && isOwner(resource.data.ownerId));
+      // GET: Allows reading a single document.
+      // 1. Admins can get any property.
+      // 2. Owners can get their own property.
+      // 3. Anyone can get a property IF it is approved.
+      allow get: if isAdmin() ||
+                    (isSignedIn() && resource.data.ownerId == request.auth.uid) ||
+                    resource.data.isApproved == true;
+
+      // CREATE: Any signed-in user can create a property.
+      // The ownerId in the new document must match the creator's UID.
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+
+      // UPDATE / DELETE: Only the owner or an admin can modify/delete.
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.ownerId == request.auth.uid);
     }
 
-
-    /**
-     * @description The list of available amenities is public and read-only for non-admins.
-     * @path /amenities/{amenityId}
-     */
+    // Static data collections (admin-write, public-read)
     match /amenities/{amenityId} {
       allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description The list of nearby place types is public and read-only for non-admins.
-     * @path /nearby_place_types/{nearbyPlaceTypeId}
-     */
     match /nearby_place_types/{nearbyPlaceTypeId} {
       allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow write: if isAdmin();
     }
   }
 }
