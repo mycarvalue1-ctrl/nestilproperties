@@ -46,8 +46,8 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Property</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Date Added</TableHead>
+                <TableHead className="hidden sm:table-cell">Owner</TableHead>
+                <TableHead className="hidden md:table-cell">Date Added</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -56,17 +56,19 @@ export default function AdminPage() {
                 pendingProperties.map((prop) => (
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
-                    <TableCell>{prop.owner.name}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">{prop.owner.name}</TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {new Date(prop.dateAdded).toLocaleDateString()}
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">
-                        <CheckCircle className="mr-1 h-4 w-4" /> Approve
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
-                        <XCircle className="mr-1 h-4 w-4" /> Reject
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">
+                          <CheckCircle className="mr-1 h-4 w-4" /> Approve
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
+                          <XCircle className="mr-1 h-4 w-4" /> Reject
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -94,7 +96,7 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Property</TableHead>
-                <TableHead>Price</TableHead>
+                <TableHead className="hidden sm:table-cell">Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Manage</TableHead>
               </TableRow>
@@ -103,7 +105,7 @@ export default function AdminPage() {
                {allProperties.map((prop) => (
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
-                    <TableCell>${prop.price.toLocaleString()}</TableCell>
+                    <TableCell className="hidden sm:table-cell">${prop.price.toLocaleString()}</TableCell>
                     <TableCell>
                        <Badge variant={
                            prop.listingStatus === 'approved' ? 'default' : 

@@ -20,6 +20,7 @@ import {
 import { locationData, type State, type District, type Locality } from '@/lib/locations';
 import { MapPin, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type Location = {
   state: string;
@@ -27,7 +28,7 @@ type Location = {
   locality: string;
 };
 
-export function LocationSelector() {
+export function LocationSelector({ className }: { className?: string }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState(1);
 
@@ -117,7 +118,10 @@ export function LocationSelector() {
     <>
       <Button
         variant="ghost"
-        className="hidden md:flex items-center gap-2 text-sm text-foreground/80 hover:text-foreground"
+        className={cn(
+          "flex items-center gap-2 text-sm text-foreground/80 hover:text-foreground",
+          className
+        )}
         onClick={openModal}
       >
         <MapPin className="h-4 w-4 text-primary" />

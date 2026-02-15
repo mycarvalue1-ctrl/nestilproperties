@@ -17,6 +17,8 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LocationSelector } from './location-selector';
 import { Input } from './ui/input';
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 
 const navLinks = [
   { href: '/properties?status=For+Rent', label: 'Rent' },
@@ -25,13 +27,14 @@ const navLinks = [
 
 export function Header() {
   const pathname = usePathname();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <Logo />
         
-        <div className="ml-4">
+        <div className="ml-4 hidden md:flex">
           <LocationSelector />
         </div>
         
@@ -58,7 +61,7 @@ export function Header() {
         </nav>
 
         <div className="flex flex-1 items-center justify-end gap-2">
-          <Button variant="ghost" size="icon" className="md:hidden">
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSearchOpen(true)}>
             <Search className="h-5 w-5" />
           </Button>
 
@@ -84,6 +87,18 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Search Properties</DialogTitle>
+                </DialogHeader>
+                <div className="relative mt-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search for properties..." className="pl-10"/>
+                </div>
+              </DialogContent>
+            </Dialog>
+
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
@@ -93,12 +108,15 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="left">
               <Logo />
-              <div className="flex flex-col space-y-4 mt-8">
-                {[...navLinks, { href: '/post-property', label: 'Sell' }].map((link) => (
+               <div className="mt-8">
+                <LocationSelector className="w-full justify-between p-2 hover:bg-accent rounded-md" />
+              </div>
+              <div className="flex flex-col space-y-4 mt-4">
+                {[...navLinks, { href: '/post-property', label: 'Sell Property' }].map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="text-lg font-medium text-foreground/80 hover:text-foreground"
+                    className="text-lg font-medium text-foreground/80 hover:text-foreground p-2"
                   >
                     {link.label}
                   </Link>
