@@ -65,8 +65,8 @@ const formSchema = z.object({
   
   price: z.coerce.number({ required_error: 'Price is required.' }).min(1, "Price must be a positive number."),
   negotiable: z.enum(['Yes', 'No']),
-  maintenance: z.coerce.number().optional(),
-  deposit: z.coerce.number().optional(),
+  maintenance: z.coerce.number().optional().default(0),
+  deposit: z.coerce.number().optional().default(0),
   availableFrom: z.date().optional(),
   preferredTenants: z.enum(['Family', 'Bachelor', 'Anyone']).optional(),
 
@@ -77,7 +77,19 @@ const formSchema = z.object({
   whatsAppAvailable: z.boolean().default(true),
   postedBy: z.enum(['Owner', 'Agent', 'Builder'], { required_error: "Please specify who is posting." }),
 
-  details: z.any(),
+  details: z.object({
+        bhk: z.string().default(''),
+        bathrooms: z.string().default(''),
+        floor: z.string().default(''),
+        totalFloors: z.string().default(''),
+        area: z.coerce.number().optional().default(0),
+        facing: z.string().default(''),
+        age: z.string().default(''),
+        furnishing: z.string().default('Unfurnished'),
+        plotArea: z.coerce.number().optional().default(0),
+        roadWidth: z.coerce.number().optional().default(0),
+        approved: z.string().default('No'),
+      }).default({}),
 }).superRefine((data, ctx) => {
   if (data.listingFor === 'Rent' && (data.deposit === undefined || data.deposit === null || data.deposit <= 0)) {
     ctx.addIssue({
@@ -115,10 +127,10 @@ export default function PostPropertyPage() {
       locality: '',
       landmark: '',
       pincode: '',
-      price: '' as any,
+      price: 0,
       negotiable: 'No',
-      maintenance: '' as any,
-      deposit: '' as any,
+      maintenance: 0,
+      deposit: 0,
       availableFrom: undefined,
       preferredTenants: 'Anyone',
       amenities: [],
@@ -131,12 +143,12 @@ export default function PostPropertyPage() {
         bathrooms: '',
         floor: '',
         totalFloors: '',
-        area: '' as any,
+        area: 0,
         facing: '',
         age: '',
         furnishing: 'Unfurnished',
-        plotArea: '' as any,
-        roadWidth: '' as any,
+        plotArea: 0,
+        roadWidth: 0,
         approved: 'No',
       },
     },
@@ -435,7 +447,7 @@ export default function PostPropertyPage() {
              <div className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary">
                 <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-2"/>
                 <p className="font-semibold">Click or drag files here to upload</p>
-                <p className="text-sm text-muted-foreground">Upload at least 3 photos. PNG, JPG up to 10 photos.</p>
+                <p className="text-sm text-muted-foreground">Upload up to 10 photos. Max 1GB per file.</p>
             </div>
           </FormSection>
 
