@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, CalendarIcon, Sparkles, MapPin, X } from 'lucide-react';
+import { Upload, CalendarIcon, Sparkles, MapPin, X, LoaderCircle } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
@@ -45,8 +45,9 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 
 const amenitiesList = [
@@ -121,7 +122,9 @@ const FormSection = ({ title, description, children, className }: { title: strin
 export default function PostPropertyPage() {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const firestore = useFirestore();
+  const storage = useStorage();
   const { user } = useUser();
   const router = useRouter();
 
@@ -241,10 +244,30 @@ export default function PostPropertyPage() {
       });
       return;
     }
+    
+    setIsSubmitting(true);
 
     try {
-      // NOTE: Photo upload to Cloud Storage is a more complex topic involving a backend or serverless functions.
-      // For now, we will save a placeholder URL.
+      let photoURLs: string[] = [];
+      if (values.photos && values.photos.length > 0) {
+        const uploadPromises = values.photos.map(file => {
+          return new Promise<string>((resolve, reject) => {
+            const storageRef = ref(storage, `properties/${user.uid}/${Date.now()}-${file.name}`);
+            const uploadTask = uploadBytesResumable(storageRef, file);
+            
+            uploadTask.on('state_changed',
+              () => {}, // progress
+              (error) => reject(error),
+              async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(downloadURL);
+              }
+            );
+          });
+        });
+        photoURLs = await Promise.all(uploadPromises);
+      }
+
       const docData = {
         // Basic Info
         title: values.title,
@@ -287,11 +310,8 @@ export default function PostPropertyPage() {
         // Amenities
         amenities: values.amenities || [],
         
-        // Photos (placeholder)
-        // In a real app, you'd upload files to Cloud Storage and save the URLs here.
-        photos: values.photos && values.photos.length > 0 
-          ? ['https://picsum.photos/seed/1/800/600'] // Placeholder for the first uploaded image
-          : ['https://picsum.photos/seed/property/800/600'],
+        // Photos
+        photos: photoURLs.length > 0 ? photoURLs : ['https://picsum.photos/seed/property/800/600'],
 
         // Owner Info (Denormalized)
         ownerId: user.uid,
@@ -332,6 +352,8 @@ export default function PostPropertyPage() {
         title: 'Submission Failed',
         description: error.message || 'An unexpected error occurred while saving your property.',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -711,7 +733,16 @@ export default function PostPropertyPage() {
             </div>
            </FormSection>
 
-          <Button size="lg" type="submit" className="w-full text-lg" variant="accent">Submit for Approval</Button>
+          <Button size="lg" type="submit" className="w-full text-lg" variant="accent" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              'Submit for Approval'
+            )}
+          </Button>
         </form>
       </Form>
     </div>
