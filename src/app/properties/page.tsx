@@ -29,9 +29,10 @@ function PropertyList() {
   const type = searchParams.get('type');
   const firestore = useFirestore();
 
-  // Correctly apply the 'isApproved' filter to all public queries
+  // This is the fix: Ensure the 'isApproved' filter is always applied for public queries.
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
+    // The query MUST include where('isApproved', '==', true) to satisfy security rules for public access.
     return query(collection(firestore, 'properties'), where('isApproved', '==', true));
   }, [firestore]);
 
@@ -39,7 +40,8 @@ function PropertyList() {
 
   const filteredProperties = useMemo(() => {
     if (!allApprovedProperties) return [];
-    // Client-side filtering for search params
+    // Client-side filtering for additional search params like 'status' and 'type'.
+    // This happens *after* the secure query has returned the data.
     return allApprovedProperties.filter(p => {
       let match = true;
       if (status && p.status !== status) {
