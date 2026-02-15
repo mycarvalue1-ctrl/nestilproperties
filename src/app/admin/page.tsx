@@ -111,7 +111,7 @@ export default function AdminPage() {
                         } className="capitalize flex items-center gap-1 w-fit">
                            {prop.listingStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
                            {prop.listingStatus === 'pending' && <Clock className="h-3 w-3" />}
-                           {prop.listing-status === 'rejected' && <XCircle className="h-3 w-3" />}
+                           {prop.listingStatus === 'rejected' && <XCircle className="h-3 w-3" />}
                            {prop.listingStatus}
                        </Badge>
                     </TableCell>
