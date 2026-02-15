@@ -1,7 +1,7 @@
 'use client';
 
 import { properties } from '@/lib/data';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -24,7 +24,8 @@ const WhatsappIcon = () => (
     </svg>
   );
 
-export default function PropertyDetailPage({ params }: { params: { id: string } }) {
+export default function PropertyDetailPage() {
+  const params = useParams<{ id: string }>();
   const [isContactVisible, setIsContactVisible] = useState(false);
   const property = properties.find((p) => p.id === params.id);
 
