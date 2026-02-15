@@ -29,6 +29,7 @@ function PropertyList() {
   const type = searchParams.get('type');
   const firestore = useFirestore();
 
+  // Correctly apply the 'isApproved' filter to all public queries
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'properties'), where('isApproved', '==', true));
@@ -38,6 +39,7 @@ function PropertyList() {
 
   const filteredProperties = useMemo(() => {
     if (!allApprovedProperties) return [];
+    // Client-side filtering for search params
     return allApprovedProperties.filter(p => {
       let match = true;
       if (status && p.status !== status) {
