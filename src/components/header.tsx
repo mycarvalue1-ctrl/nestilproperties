@@ -13,12 +13,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LocationSelector } from './location-selector';
 import { Input } from './ui/input';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { useAuth, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 const navLinks = [
   { href: '/properties?status=For+Rent', label: 'Rent' },
@@ -28,16 +30,18 @@ const navLinks = [
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
-  // Mock login state and user. In a real app, this would come from an auth context.
-  const currentUser = {
-    isLoggedIn: true,
-    email: 'mycarvalue1@gmail.com', 
+  const { user: currentUser, isUserLoading } = useUser();
+  const auth = useAuth();
+  
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
   };
 
-  const isAdmin = currentUser.isLoggedIn && currentUser.email === 'mycarvalue1@gmail.com';
-
+  const isAdmin = currentUser?.email === 'mycarvalue1@gmail.com';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -87,7 +91,9 @@ export function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {currentUser.isLoggedIn ? (
+              {isUserLoading ? (
+                <DropdownMenuLabel>Loading...</DropdownMenuLabel>
+              ) : currentUser ? (
                 <>
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -102,14 +108,14 @@ export function Header() {
                     </>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
                 </>
               ) : (
                 <>
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild><Link href="/login">Login</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/login">Sign Up</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/signup">Sign Up</Link></DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>

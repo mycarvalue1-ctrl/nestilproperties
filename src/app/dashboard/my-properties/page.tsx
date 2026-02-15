@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, MoreVertical, Trash, EyeOff, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useUser } from "@/firebase";
 
 export default function MyPropertiesPage() {
-  const userId = 'user-1';
-  const userProperties = properties.filter(p => p.owner.id === userId);
+  const { user } = useUser(); // Get the current user
+  // This filter will now use the real user's ID, but still with mock property data.
+  const userProperties = properties.filter(p => p.owner.id === user?.uid);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {

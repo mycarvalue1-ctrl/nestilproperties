@@ -1,5 +1,8 @@
 'use client';
 
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { properties, users } from "@/lib/data";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search } from "lucide-react";
-import type { User } from "@/lib/types";
+import type { User as AppUser } from "@/lib/types";
 import Link from "next/link";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,14 +36,31 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
-// Mock current user for route protection. In a real app, this would come from an auth context.
-const currentUser = {
-  email: 'mycarvalue1@gmail.com',
-};
-
 export default function AdminPage() {
-  const isAdmin = currentUser.email === 'mycarvalue1@gmail.com';
+  const { user: currentUser, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && (!currentUser || currentUser.email !== 'mycarvalue1@gmail.com')) {
+      router.push('/login');
+    }
+  }, [currentUser, isUserLoading, router]);
+
+  const isAdmin = currentUser?.email === 'mycarvalue1@gmail.com';
   
+  if (isUserLoading || !isAdmin) {
+    return (
+      <div className="container py-12 flex items-center justify-center">
+        <Alert variant="destructive" className="max-w-lg">
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You do not have permission to view this page. This area is for administrators only.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   const pendingProperties = properties.filter(
     (p) => p.listingStatus === "pending"
   );
@@ -85,20 +105,6 @@ export default function AdminPage() {
     link.click();
     document.body.removeChild(link);
   };
-  
-  if (!isAdmin) {
-    return (
-      <div className="container py-12 flex items-center justify-center">
-        <Alert variant="destructive" className="max-w-lg">
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You do not have permission to view this page. This area is for administrators only.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
 
   return (
     <div className="container py-12">

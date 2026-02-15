@@ -1,19 +1,23 @@
+'use client'; // Required because we are using hooks
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { properties, users } from "@/lib/data";
+import { properties } from "@/lib/data"; // Still using mock properties for now
 import { List, PlusCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
+import { useUser } from "@/firebase";
 
 export default function DashboardPage() {
-  // Mocking a logged in user
-  const userId = 'user-1';
-  const user = users.find(u => u.id === userId);
-  const userProperties = properties.filter(p => p.owner.id === userId);
+  const { user } = useUser(); // Use the hook to get the logged-in user
+
+  // The rest of the logic can remain the same if we're still using mock data for properties
+  // When Firestore is connected, this will need to be updated to fetch real properties.
+  const userProperties = properties.filter(p => p.owner.id === user?.uid);
   const activeListings = userProperties.filter(p => p.listingStatus === 'approved').length;
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Welcome, {user?.name || 'User'}!</h1>
+      <h1 className="text-3xl font-bold mb-6">Welcome, {user?.displayName || 'User'}!</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
