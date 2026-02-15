@@ -17,9 +17,8 @@
  *   for reference data, managed exclusively by administrators.
  *
  * ## Key Security Decisions
- * - **Admin Roles**: Administrator status is determined by a user's email address being
- *   `mycarvalue1@gmail.com`. For development, email verification is NOT required, but
- *   it should be re-enabled for production.
+ * - **Admin Roles**: Administrator status is determined by the user's unique ID (UID).
+ *   This is a more secure and reliable method than checking email.
  * - **Public Listings**: The visibility of properties is controlled by an `isApproved` flag.
  *   This is the cornerstone of public access. Client queries for public listings MUST
  *   filter by `where('isApproved', '==', true)` for `list` operations to succeed.
@@ -61,15 +60,11 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the user is the designated administrator.
-     * The email_verified check is REMOVED for development to allow the admin
-     * to work without needing to verify their email.
-     *
-     * IMPORTANT: For production, re-enable `request.auth.token.email_verified == true`.
+     * Checks if the user is the designated administrator by their UID.
+     * This is more secure and reliable than checking by email.
      */
     function isAdmin() {
-      return isSignedIn() &&
-             request.auth.token.email == 'mycarvalue1@gmail.com';
+      return isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
 
     // ------------------------------------------------------------------------
@@ -105,7 +100,8 @@ service cloud.firestore {
       // ---------------------------
       // LIST (collection queries)
       // ---------------------------
-      // Public users may ONLY query approved listings
+      // Public users may ONLY query approved listings. Admins can list all.
+      // Owners can list their own properties.
       allow list: if isAdmin()
                   || request.query.where('isApproved', '==', true)
                   || (isSignedIn() && request.query.where('ownerId', '==', request.auth.uid));
@@ -113,6 +109,7 @@ service cloud.firestore {
       // ---------------------------
       // GET (single document read)
       // ---------------------------
+      // Admins and owners can get any of their docs. Public can get approved docs.
       allow get: if isAdmin()
                  || (isSignedIn() && isOwner(resource.data.ownerId))
                  || resource.data.isApproved == true;
@@ -120,12 +117,14 @@ service cloud.firestore {
       // ---------------------------
       // CREATE
       // ---------------------------
+      // Any signed-in user can create a property, but they must be the owner.
       allow create: if isSignedIn()
                     && request.resource.data.ownerId == request.auth.uid;
     
       // ---------------------------
       // UPDATE / DELETE
       // ---------------------------
+      // Only the owner or an admin can update/delete.
       allow update, delete: if isAdmin()
                             || (isSignedIn() && isOwner(resource.data.ownerId));
     }
