@@ -8,18 +8,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Admin check using the specific UID provided by the user.
-    function isAdmin() {
-      return isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
-    }
-
     // User profile rules
     match /users/{userId} {
-      allow get: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get: if (isSignedIn() && request.auth.uid == userId) || (isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3');
+      allow list: if isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
       allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.id == userId;
-      allow update: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow update: if (isSignedIn() && request.auth.uid == userId) || (isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3');
+      allow delete: if isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
 
     // Favorite properties rules (user-owned subcollection)
@@ -33,7 +28,7 @@ service cloud.firestore {
       // 1. Admins can list all properties without filters.
       // 2. Public users can list properties IF they filter for approved ones.
       // 3. Logged-in users can list their own properties by filtering on ownerId.
-      allow list: if isAdmin() ||
+      allow list: if (isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3') ||
                      request.query.where('isApproved', '==', true) ||
                      (isSignedIn() && request.query.where('ownerId', '==', request.auth.uid));
 
@@ -41,7 +36,7 @@ service cloud.firestore {
       // 1. Admins can get any property.
       // 2. Owners can get their own property.
       // 3. Anyone can get a property IF it is approved.
-      allow get: if isAdmin() ||
+      allow get: if (isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3') ||
                     (isSignedIn() && resource.data.ownerId == request.auth.uid) ||
                     resource.data.isApproved == true;
 
@@ -50,18 +45,18 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
 
       // UPDATE / DELETE: Only the owner or an admin can modify/delete.
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+      allow update, delete: if (isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3') || (isSignedIn() && resource.data.ownerId == request.auth.uid);
     }
 
     // Static data collections (admin-write, public-read)
     match /amenities/{amenityId} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow write: if isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
 
     match /nearby_place_types/{nearbyPlaceTypeId} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow write: if isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
   }
 }
