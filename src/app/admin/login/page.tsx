@@ -14,27 +14,27 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import Link from "next/link";
 import { useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Shield } from 'lucide-react';
+import Link from 'next/link';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-export default function SignupPage() {
+export default function AdminLoginPage() {
   const auth = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const adminUid = 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
       email: "",
       password: "",
     },
@@ -42,21 +42,26 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: values.name,
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      
+      if (userCredential.user.uid === adminUid) {
+        toast({
+          title: "Admin Login Successful",
+          description: "Welcome to the admin dashboard.",
+        });
+        router.push('/admin');
+      } else {
+        await signOut(auth);
+        toast({
+          variant: "destructive",
+          title: "Access Denied",
+          description: "You are not an authorized administrator.",
         });
       }
-      toast({
-        title: "Account Created",
-        description: "You have successfully signed up.",
-      });
-      router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Sign-up Failed",
+        title: "Login Failed",
         description: error.message,
       });
     }
@@ -65,10 +70,11 @@ export default function SignupPage() {
   return (
     <div className="flex items-center justify-center min-h-[80vh] bg-background">
       <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Sign Up</CardTitle>
+        <CardHeader className="text-center">
+            <Shield className="mx-auto h-12 w-12 text-primary" />
+          <CardTitle className="text-2xl mt-4">Admin Login</CardTitle>
           <CardDescription>
-            Create an account to start listing and finding properties.
+            Enter your administrator credentials below.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -76,25 +82,12 @@ export default function SignupPage() {
             <CardContent className="grid gap-4">
               <FormField
                 control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="m@example.com" {...field} />
+                      <Input type="email" placeholder="admin@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -114,12 +107,12 @@ export default function SignupPage() {
                 )}
               />
             </CardContent>
-            <CardFooter className="flex flex-col">
-              <Button type="submit" className="w-full">Create Account</Button>
-              <div className="mt-4 text-center text-sm">
-                Already have an account?{" "}
+            <CardFooter className="flex-col">
+              <Button type="submit" className="w-full">Sign in as Admin</Button>
+               <div className="mt-4 text-center text-sm">
+                Not an admin?{" "}
                 <Link href="/user-login" className="underline">
-                  Sign in
+                  Login as User
                 </Link>
               </div>
             </CardFooter>

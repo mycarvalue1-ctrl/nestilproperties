@@ -65,7 +65,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!isUserLoading && (!currentUser || currentUser.uid !== adminUid)) {
-      router.push('/login');
+      router.push('/admin/login');
     }
   }, [currentUser, isUserLoading, router]);
 

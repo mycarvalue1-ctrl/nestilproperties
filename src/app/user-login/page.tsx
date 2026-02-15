@@ -16,17 +16,16 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from "next/link";
 import { useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
-export default function SignupPage() {
+export default function UserLoginPage() {
   const auth = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -34,7 +33,6 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
       email: "",
       password: "",
     },
@@ -42,21 +40,16 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: values.name,
-        });
-      }
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
-        title: "Account Created",
-        description: "You have successfully signed up.",
+        title: "Login Successful",
+        description: "Welcome back!",
       });
       router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Sign-up Failed",
+        title: "Login Failed",
         description: error.message,
       });
     }
@@ -66,27 +59,14 @@ export default function SignupPage() {
     <div className="flex items-center justify-center min-h-[80vh] bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Sign Up</CardTitle>
+          <CardTitle className="text-2xl">User Login</CardTitle>
           <CardDescription>
-            Create an account to start listing and finding properties.
+            Enter your email below to login to your account.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="grid gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 control={form.control}
                 name="email"
@@ -115,11 +95,11 @@ export default function SignupPage() {
               />
             </CardContent>
             <CardFooter className="flex flex-col">
-              <Button type="submit" className="w-full">Create Account</Button>
+              <Button type="submit" className="w-full">Sign in</Button>
               <div className="mt-4 text-center text-sm">
-                Already have an account?{" "}
-                <Link href="/user-login" className="underline">
-                  Sign in
+                Don&apos;t have an account?{" "}
+                <Link href="/signup" className="underline">
+                  Sign up
                 </Link>
               </div>
             </CardFooter>
