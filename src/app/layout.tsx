@@ -3,18 +3,18 @@ import './globals.css';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { Toaster } from '@/components/ui/toaster';
-import { Poppins } from 'next/font/google';
+import { Open_Sans } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
-const poppinsHeadline = Poppins({
+const openSansHeadline = Open_Sans({
   subsets: ['latin'],
   display: 'swap',
   weight: ['500', '600', '700'],
   variable: '--font-headline',
 });
 
-const poppinsBody = Poppins({
+const openSansBody = Open_Sans({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '600'],
@@ -37,8 +37,8 @@ export default function RootLayout({
       <body
         className={cn(
           'font-body antialiased',
-          poppinsHeadline.variable,
-          poppinsBody.variable
+          openSansHeadline.variable,
+          openSansBody.variable
         )}
       >
         <FirebaseClientProvider>
