@@ -3,18 +3,18 @@ import './globals.css';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { Toaster } from '@/components/ui/toaster';
-import { Inter, Poppins } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
-const poppins = Poppins({
+const poppinsHeadline = Poppins({
   subsets: ['latin'],
   display: 'swap',
   weight: ['500', '600', '700'],
   variable: '--font-headline',
 });
 
-const inter = Inter({
+const poppinsBody = Poppins({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '600'],
@@ -37,8 +37,8 @@ export default function RootLayout({
       <body
         className={cn(
           'font-body antialiased',
-          poppins.variable,
-          inter.variable
+          poppinsHeadline.variable,
+          poppinsBody.variable
         )}
       >
         <FirebaseClientProvider>
