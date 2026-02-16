@@ -1,18 +1,19 @@
 'use client';
 
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish } from 'lucide-react';
+import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SimilarProperties } from '@/components/similar-properties';
 import { useState } from 'react';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { Property } from '@/lib/types';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 const WhatsappIcon = () => (
     <svg
@@ -54,7 +55,10 @@ function PropertyDetailSkeleton() {
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const [isContactVisible, setIsContactVisible] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
   
+  const { user } = useUser();
   const firestore = useFirestore();
   const propertyRef = useMemoFirebase(() => {
     if (!firestore || !params.id) return null;
@@ -62,6 +66,63 @@ export default function PropertyDetailPage() {
   }, [firestore, params.id]);
 
   const { data: property, isLoading } = useDoc<Property>(propertyRef);
+
+  const handleShowContact = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to view contact details.",
+        variant: "destructive",
+      });
+      router.push('/user-login');
+      return;
+    }
+
+    if (!firestore) return;
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    try {
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        if (userData.credits && userData.credits > 0) {
+          // Deduct credit and show info
+          await updateDoc(userDocRef, {
+            credits: increment(-1)
+          });
+          setIsContactVisible(true);
+          toast({
+            title: "Credit Spent!",
+            description: `You have ${userData.credits - 1} credits remaining.`,
+          });
+        } else {
+          // No credits
+          toast({
+            variant: "destructive",
+            title: "Out of Credits",
+            description: "You need to buy more credits to see contact details.",
+          });
+          router.push('/buy-credits');
+        }
+      } else {
+        // This case can happen if the user document wasn't created on signup
+        toast({
+          variant: "destructive",
+          title: "Profile Error",
+          description: "Your user profile could not be found. Please contact support.",
+        });
+      }
+    } catch (error) {
+      console.error("Error checking credits: ", error);
+      toast({
+        variant: "destructive",
+        title: "An Error Occurred",
+        description: "Could not verify your credit balance.",
+      });
+    }
+  };
+
 
   if (isLoading) {
     return <PropertyDetailSkeleton />;
@@ -229,14 +290,14 @@ export default function PropertyDetailPage() {
                         <>
                             <CardHeader>
                                 <CardTitle>Interested?</CardTitle>
-                                <p className="text-muted-foreground">Contact the {property.owner.isAgent ? 'agent' : 'owner'} to learn more.</p>
+                                <p className="text-muted-foreground">Reveal owner details for 1 credit.</p>
                             </CardHeader>
                             <CardContent>
-                                <Button onClick={() => setIsContactVisible(true)} className="w-full" size="lg">
-                                    <Eye className="mr-2 h-5 w-5" />
-                                    Show Contact Info
+                                <Button onClick={handleShowContact} className="w-full" size="lg">
+                                    <Coins className="mr-2 h-5 w-5" />
+                                    Spend 1 Credit to View
                                 </Button>
-                                <p className="text-xs text-muted-foreground mt-2">An OTP may be required for verification.</p>
+                                <p className="text-xs text-muted-foreground mt-2">You will be charged 1 credit.</p>
                             </CardContent>
                         </>
                     ) : (
@@ -274,3 +335,5 @@ export default function PropertyDetailPage() {
     </div>
   );
 }
+
+    

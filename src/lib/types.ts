@@ -43,4 +43,7 @@ export type User = {
   dateJoined: string;
   role: 'Owner' | 'Agent' | 'Builder';
   listings: number;
+  credits?: number;
 };
+
+    

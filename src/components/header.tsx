@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu, Search, User } from 'lucide-react';
+import { Menu, Search, User, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
@@ -104,6 +104,7 @@ export function Header() {
                   <DropdownMenuItem asChild><Link href="/dashboard/my-properties">My Properties</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/dashboard/profile">Profile</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/favorites">Favorites</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/buy-credits" className="flex items-center gap-2"><Coins /> Buy Credits</Link></DropdownMenuItem>
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator />
@@ -166,3 +167,5 @@ export function Header() {
     </header>
   );
 }
+
+    

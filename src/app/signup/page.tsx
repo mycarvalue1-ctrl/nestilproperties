@@ -15,10 +15,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import Link from "next/link";
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { doc, setDoc } from 'firebase/firestore';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -28,6 +29,7 @@ const formSchema = z.object({
 
 export default function SignupPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -44,13 +46,29 @@ export default function SignupPage() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       if (userCredential.user) {
-        await updateProfile(userCredential.user, {
+        const user = userCredential.user;
+        await updateProfile(user, {
           displayName: values.name,
         });
+
+        // Create a user profile document in Firestore
+        if (firestore) {
+            const userDocRef = doc(firestore, "users", user.uid);
+            await setDoc(userDocRef, {
+                id: user.uid,
+                name: values.name,
+                email: values.email,
+                role: 'Owner', // Default role
+                listings: 0,
+                credits: 5, // Give 5 free credits on signup
+                dateJoined: new Date().toISOString(),
+                phone: '', // Phone not collected at signup
+            });
+        }
       }
       toast({
         title: "Account Created",
-        description: "You have successfully signed up.",
+        description: "You have successfully signed up. We've added 5 free credits to your account!",
       });
       router.push('/dashboard');
     } catch (error: any) {
@@ -129,3 +147,5 @@ export default function SignupPage() {
     </div>
   );
 }
+
+    
