@@ -45,10 +45,10 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useStorage } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
+import ImageKit from 'imagekit-javascript';
 
 const amenitiesList = [
   'Lift', 'Borewell Water', 'Municipal Water', 'Power Backup',
@@ -126,7 +126,6 @@ export default function PostPropertyPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const firestore = useFirestore();
-  const storage = useStorage();
   const { user } = useUser();
   const router = useRouter();
 
@@ -254,22 +253,29 @@ export default function PostPropertyPage() {
     try {
       let photoURLs: string[] = [];
       if (values.photos && values.photos.length > 0) {
+        
+        const imagekit = new ImageKit({
+            publicKey: "public_xSP0ZH+P7dHoDN1lZHj3PsTHYik=",
+            urlEndpoint: "https://ik.imagekit.io/ilk0tj3rj",
+        });
+
+        const authRes = await fetch('/api/imagekit/auth');
+        if (!authRes.ok) {
+            throw new Error('Failed to authenticate with ImageKit. Please try again.');
+        }
+        const authParams = await authRes.json();
+
         const uploadPromises = values.photos.map(file => {
-          return new Promise<string>((resolve, reject) => {
-            const storageRef = ref(storage, `properties/${user.uid}/${Date.now()}-${file.name}`);
-            const uploadTask = uploadBytesResumable(storageRef, file);
-            
-            uploadTask.on('state_changed',
-              () => {}, // progress
-              (error) => reject(error),
-              async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(downloadURL);
-              }
-            );
+          return imagekit.upload({
+            file: file,
+            fileName: file.name,
+            ...authParams,
+            folder: `/nestil/properties/${user.uid}/`
           });
         });
-        photoURLs = await Promise.all(uploadPromises);
+        
+        const results = await Promise.all(uploadPromises);
+        photoURLs = results.map(res => res.url);
       }
 
       const docData = {

@@ -30,9 +30,9 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
+        hostname: 'ik.imagekit.io',
         port: '',
-        pathname: '/**',
+        pathname: '/ilk0tj3rj/**',
       },
     ],
   },
