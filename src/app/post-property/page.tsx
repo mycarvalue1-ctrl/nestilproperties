@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -259,13 +260,13 @@ export default function PostPropertyPage() {
             urlEndpoint: "https://ik.imagekit.io/ilk0tj3rj",
         });
 
-        const authRes = await fetch('/api/imagekit/auth');
-        if (!authRes.ok) {
-            throw new Error('Failed to authenticate with ImageKit. Please try again.');
-        }
-        const authParams = await authRes.json();
-
-        const uploadPromises = values.photos.map(file => {
+        const uploadPromises = values.photos.map(async (file) => {
+          const authRes = await fetch('/api/imagekit/auth');
+          if (!authRes.ok) {
+              throw new Error(`Failed to authenticate ImageKit for ${file.name}.`);
+          }
+          const authParams = await authRes.json();
+          
           return imagekit.upload({
             file: file,
             fileName: file.name,
