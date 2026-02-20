@@ -1,3 +1,4 @@
+
 export type Property = {
   id: string;
   title: string;
@@ -42,6 +43,7 @@ export type Property = {
   deposit?: number;
   availableFrom?: string | null;
   preferredTenants?: 'Family' | 'Bachelor' | 'Anyone';
+  isApproved: boolean;
   floor?: string;
   totalFloors?: string;
   facing?: string;
