@@ -159,6 +159,9 @@ export default function PropertyDetailPage() {
 
   const propertyPhotos = (property.photos && property.photos.length > 0) ? property.photos : ['https://picsum.photos/seed/property/800/600'];
 
+  const mapQuery = encodeURIComponent(`${property.address}, ${property.city}, ${property.pincode}`);
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
+
   return (
     <div className="bg-background">
       <div className="container py-10">
@@ -264,7 +267,14 @@ export default function PropertyDetailPage() {
                         <CardTitle>Location</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Image src="https://picsum.photos/seed/map/800/600" alt="Map location" width={800} height={600} className="w-full rounded-lg" data-ai-hint="city map"/>
+                         <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="block relative group">
+                            <Image src="https://picsum.photos/seed/map/800/600" alt="Map location" width={800} height={600} className="w-full rounded-lg" data-ai-hint="city map"/>
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="secondary">
+                                    <MapPin className="mr-2 h-4 w-4" /> View on Google Maps
+                                </Button>
+                            </div>
+                         </a>
                     </CardContent>
                 </Card>
             </div>
