@@ -5,14 +5,26 @@ import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins } from 'lucide-react';
+import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins, Calendar as CalendarIcon, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useMemo } from 'react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { Property } from '@/lib/types';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import type { Property, SiteVisit } from '@/lib/types';
+import { addDoc, collection, doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { format, setHours, setMinutes } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+
 
 const WhatsappIcon = () => (
     <svg
@@ -24,6 +36,18 @@ const WhatsappIcon = () => (
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
     </svg>
   );
+
+const visitSchema = z.object({
+  visitDate: z.date({ required_error: "Please select a date for the visit." }),
+  visitTime: z.string({ required_error: "Please select a time slot." }),
+  message: z.string().max(500, "Message cannot exceed 500 characters.").optional(),
+});
+
+const timeSlots = Array.from({ length: 10 }, (_, i) => {
+    const hour = i + 9; // 9 AM to 6 PM (18:00)
+    return `${hour}:00`;
+});
+
 
 function PropertyDetailSkeleton() {
   return (
@@ -54,6 +78,8 @@ function PropertyDetailSkeleton() {
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const [isContactVisible, setIsContactVisible] = useState(false);
+  const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
+
   const { toast } = useToast();
   const router = useRouter();
   
@@ -75,6 +101,15 @@ export default function PropertyDetailPage() {
     const mapQuery = encodeURIComponent(`${property.address}, ${property.city}, ${property.pincode}`);
     return `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
   }, [property]);
+
+  const visitForm = useForm<z.infer<typeof visitSchema>>({
+    resolver: zodResolver(visitSchema),
+    defaultValues: {
+      visitDate: new Date(),
+      visitTime: "",
+      message: "",
+    },
+  });
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -167,17 +202,47 @@ export default function PropertyDetailPage() {
     }
   };
 
+  async function onScheduleVisit(values: z.infer<typeof visitSchema>) {
+    if (!user || !firestore || !property) {
+        toast({ variant: "destructive", title: "Error", description: "You must be logged in to schedule a visit." });
+        return;
+    }
+
+    const [hour] = values.visitTime.split(':').map(Number);
+    const scheduledDateTime = setMinutes(setHours(values.visitDate, hour), 0);
+
+    const visitRequest: Omit<SiteVisit, 'id'> = {
+        propertyId: property.id,
+        propertyTitle: property.title,
+        propertyImage: property.photos[0],
+        ownerId: property.ownerId,
+        visitorId: user.uid,
+        visitorName: user.displayName || 'Unknown User',
+        visitorPhone: user.phoneNumber || '',
+        scheduledAt: scheduledDateTime.toISOString(),
+        message: values.message || '',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+    };
+
+    try {
+        await addDoc(collection(firestore, 'site_visits'), visitRequest);
+        toast({ title: "Request Sent!", description: "The property owner has been notified of your visit request." });
+        setIsVisitDialogOpen(false);
+        visitForm.reset();
+    } catch (error) {
+        console.error("Error sending visit request:", error);
+        toast({ variant: "destructive", title: "Failed to Send Request", description: "An error occurred. Please try again." });
+    }
+  }
+
 
   if (isUserLoading || isPropertyLoading) {
     return <PropertyDetailSkeleton />;
   }
 
-  if (!user) {
+  if (!user || !property) {
     return <PropertyDetailSkeleton />;
-  }
-
-  if (!property) {
-    notFound();
   }
 
   const propertyPhotos = (property.photos && property.photos.length > 0) ? property.photos : ['https://picsum.photos/seed/property/800/600'];
@@ -350,7 +415,7 @@ export default function PropertyDetailPage() {
                         <>
                             <CardHeader>
                                 <CardTitle>Interested?</CardTitle>
-                                <p className="text-muted-foreground">Reveal owner details by purchasing a plan.</p>
+                                <p className="text-muted-foreground">Reveal owner details to contact them directly or schedule a visit.</p>
                             </CardHeader>
                             <CardContent>
                                 <Button onClick={handleShowContact} className="w-full" size="lg">
@@ -382,6 +447,115 @@ export default function PropertyDetailPage() {
                                         </a>
                                     </Button>
                                 </div>
+                                 <Dialog open={isVisitDialogOpen} onOpenChange={setIsVisitDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full" size="lg">
+                                            <CalendarIcon className="mr-2 h-5 w-5" /> Schedule Visit
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Schedule a Site Visit</DialogTitle>
+                                            <DialogDescription>
+                                                Request an appointment to see this property.
+                                                {property.visitAvailability && (
+                                                    <p className="mt-2 text-sm text-foreground bg-secondary/50 p-2 rounded-md">
+                                                        <strong>Owner's Availability:</strong> {property.visitAvailability}
+                                                    </p>
+                                                )}
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <Form {...visitForm}>
+                                            <form onSubmit={visitForm.handleSubmit(onScheduleVisit)} className="space-y-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <FormField
+                                                        control={visitForm.control}
+                                                        name="visitDate"
+                                                        render={({ field }) => (
+                                                        <FormItem className="flex flex-col">
+                                                            <FormLabel>Date</FormLabel>
+                                                            <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <FormControl>
+                                                                <Button
+                                                                    variant={"outline"}
+                                                                    className={cn(
+                                                                    "pl-3 text-left font-normal",
+                                                                    !field.value && "text-muted-foreground"
+                                                                    )}
+                                                                >
+                                                                    {field.value ? (
+                                                                    format(field.value, "PPP")
+                                                                    ) : (
+                                                                    <span>Pick a date</span>
+                                                                    )}
+                                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                                </Button>
+                                                                </FormControl>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-0" align="start">
+                                                                <Calendar
+                                                                    mode="single"
+                                                                    selected={field.value}
+                                                                    onSelect={field.onChange}
+                                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                                                    initialFocus
+                                                                />
+                                                            </PopoverContent>
+                                                            </Popover>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                        )}
+                                                    />
+                                                     <FormField
+                                                        control={visitForm.control}
+                                                        name="visitTime"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                            <FormLabel>Time Slot</FormLabel>
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select a time" />
+                                                                </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                {timeSlots.map(time => (
+                                                                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                                                                ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                        />
+                                                </div>
+                                                 <FormField
+                                                    control={visitForm.control}
+                                                    name="message"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                        <FormLabel>Message (Optional)</FormLabel>
+                                                        <FormControl>
+                                                            <Textarea
+                                                            placeholder="Any specific questions or requests?"
+                                                            {...field}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                    />
+                                                <DialogFooter>
+                                                    <Button type="submit" disabled={visitForm.formState.isSubmitting}>
+                                                        {visitForm.formState.isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                                        Send Request
+                                                    </Button>
+                                                </DialogFooter>
+                                            </form>
+                                        </Form>
+                                    </DialogContent>
+                                </Dialog>
                             </CardContent>
                         </>
                     )}
@@ -392,3 +566,5 @@ export default function PropertyDetailPage() {
     </div>
   );
 }
+
+    

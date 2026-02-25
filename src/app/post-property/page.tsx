@@ -75,6 +75,7 @@ const formSchema = z.object({
   deposit: z.coerce.number().optional().default(0),
   availableFrom: z.date().optional(),
   preferredTenants: z.enum(['Family', 'Bachelor', 'Anyone']).optional(),
+  visitAvailability: z.string().optional(),
 
   amenities: z.array(z.string()).optional(),
   nonVegAllowed: z.boolean().default(true),
@@ -154,6 +155,7 @@ export default function PostPropertyPage() {
       deposit: 0,
       availableFrom: undefined,
       preferredTenants: 'Anyone',
+      visitAvailability: '',
       amenities: [],
       nonVegAllowed: true,
       vehicleParking: 'None',
@@ -283,6 +285,7 @@ export default function PostPropertyPage() {
                     deposit: data.deposit,
                     availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
                     preferredTenants: data.preferredTenants,
+                    visitAvailability: data.visitAvailability,
                     amenities: data.amenities,
                     nonVegAllowed: data.nonVegAllowed,
                     vehicleParking: data.vehicleParking,
@@ -421,6 +424,7 @@ export default function PostPropertyPage() {
         deposit: values.deposit,
         availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
         preferredTenants: values.preferredTenants,
+        visitAvailability: values.visitAvailability,
         areaSqFt: values.details.area || values.details.plotArea || 0,
         bhk: values.details.bhk || '',
         beds: Number(values.details.bhk?.charAt(0) || '0'),
@@ -671,6 +675,14 @@ export default function PostPropertyPage() {
                         </FormItem>
                     )} />
                 </div>
+                 <FormField control={form.control} name="visitAvailability" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Visit Availability (Optional)</FormLabel>
+                    <FormControl><Textarea placeholder="e.g., Available on weekends from 10 AM to 4 PM. Please call before visiting." {...field} /></FormControl>
+                     <FormDescription>Let potential visitors know when you are generally available.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+              )} />
           </FormSection>
 
           {propertyType && (
@@ -931,3 +943,5 @@ export default function PostPropertyPage() {
     </div>
   );
 }
+
+    

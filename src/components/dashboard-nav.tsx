@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
-import { User, LogOut, LayoutGrid, List, Coins } from 'lucide-react';
+import { User, LogOut, LayoutGrid, List, Coins, CalendarCheck } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { href: '/dashboard/my-properties', label: 'My Properties', icon: List },
+  { href: '/dashboard/visit-requests', label: 'Visit Requests', icon: CalendarCheck },
   { href: '/dashboard/profile', label: 'Profile', icon: User },
   { href: '/buy-credits', label: 'Buy Credits', icon: Coins },
 ];
@@ -49,3 +50,5 @@ export function DashboardNav() {
     </nav>
   );
 }
+
+    

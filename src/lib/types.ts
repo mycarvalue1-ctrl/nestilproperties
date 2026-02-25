@@ -34,6 +34,7 @@ export type Property = {
   dateAdded: string;
   isNew?: boolean;
   isUrgent?: boolean;
+  visitAvailability?: string;
 
   // Fields from form that were missing
   ownerId: string;
@@ -68,5 +69,21 @@ export type User = {
   subscriptionEndDate?: string;
   isBanned?: boolean;
 };
+
+export type SiteVisit = {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  propertyImage: string;
+  visitorId: string;
+  ownerId: string;
+  scheduledAt: string; // ISO string
+  message: string;
+  status: 'pending' | 'confirmed' | 'rejected';
+  createdAt: any; // serverTimestamp
+  visitorName: string;
+  visitorPhone: string;
+};
+    
 
     
