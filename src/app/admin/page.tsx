@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin } from "lucide-react";
 import type { User as AppUser, Property } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
@@ -64,66 +64,86 @@ const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, in
     const maskedPhone = property.owner?.phone ? `******${property.owner.phone.slice(-4)}` : 'N/A';
 
     return (
-        <div ref={innerRef} className="w-[595px] bg-gray-100 text-gray-800 fixed -z-10 -left-[9999px] font-sans text-base leading-normal">
-            <div className="p-8">
+        <div ref={innerRef} className="w-[595px] bg-white text-gray-800 fixed -z-10 -left-[9999px] font-sans">
+            {/* Page Wrapper */}
+            <div className="min-h-[842px] flex flex-col"> 
                 {/* Header */}
-                <div className="flex justify-between items-center pb-4 border-b border-gray-300">
-                    <div className="flex items-center gap-2 text-xl font-bold">
-                        <Building2 className="h-6 w-6" />
-                        <span>Nestil</span>
+                <header className="bg-primary text-primary-foreground p-6 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <Building2 className="h-8 w-8" />
+                        <span className="text-3xl font-bold">Nestil</span>
                     </div>
-                    <p className="text-sm">Your Nearby Property Marketplace</p>
-                </div>
+                    <p className="text-sm">www.nestil.in</p>
+                </header>
 
-                {/* Main Content */}
-                <div className="mt-6">
+                {/* Main content */}
+                <main className="p-8 flex-grow">
                     {/* Image */}
-                    <img src={photoUrl} crossOrigin="anonymous" className="w-full h-80 object-cover rounded-lg shadow-md" alt={property.title} />
+                    <img src={photoUrl} crossOrigin="anonymous" className="w-full h-64 object-cover rounded-xl shadow-lg border-4 border-white" alt={property.title} />
 
-                    <div className="mt-6 bg-white p-6 rounded-lg shadow">
-                         {/* Title and Address */}
-                        <h1 className="text-2xl font-bold text-gray-900">{property.title}</h1>
-                        <p className="text-gray-500 mt-1">{property.address}, {property.city}</p>
-
-                        {/* Price */}
-                        <p className="text-3xl font-bold text-blue-600 my-4">
-                            ₹{property.price.toLocaleString('en-IN')}
-                            <span className="text-xl font-normal">{property.listingFor === 'Rent' ? ' / month' : ''}</span>
-                        </p>
-
-                        {/* Key Details */}
-                        <div className="grid grid-cols-3 gap-4 text-center my-4 py-4 border-t border-b border-gray-200">
-                            <div>
-                                <p className="font-bold text-xl">{property.bhk || 'N/A'}</p>
-                                <p className="text-sm text-gray-500">BHK</p>
-                            </div>
-                            <div>
-                                <p className="font-bold text-xl">{property.baths || 'N/A'}</p>
-                                <p className="text-sm text-gray-500">Baths</p>
-                            </div>
-                            <div>
-                                <p className="font-bold text-xl">{property.areaSqFt ? property.areaSqFt.toLocaleString('en-IN') : 'N/A'}</p>
-                                <p className="text-sm text-gray-500">sqft</p>
-                            </div>
+                    {/* Title & Price */}
+                    <div className="mt-6 flex justify-between items-start">
+                        <div>
+                            <h1 className="text-3xl font-bold text-primary">{property.title}</h1>
+                            <p className="text-muted-foreground mt-1 flex items-center gap-2">
+                                <MapPin className="h-4 w-4"/>
+                                {property.address}, {property.city}
+                            </p>
                         </div>
+                        <div className="text-right">
+                            <p className="text-sm text-muted-foreground">{property.listingFor === 'Rent' ? 'For Rent' : 'For Sale'}</p>
+                            <p className="text-3xl font-bold text-accent">
+                                ₹{property.price.toLocaleString('en-IN')}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {/* Details Section */}
+                    <div className="mt-8 grid grid-cols-3 gap-6 text-center bg-secondary/50 p-4 rounded-lg">
+                         <div className="flex flex-col items-center gap-1">
+                            <BedDouble className="h-7 w-7 text-primary" />
+                            <p className="font-bold text-lg">{property.bhk || 'N/A'}</p>
+                            <p className="text-sm text-muted-foreground">BHK</p>
+                        </div>
+                         <div className="flex flex-col items-center gap-1">
+                            <Bath className="h-7 w-7 text-primary" />
+                            <p className="font-bold text-lg">{property.baths || 'N/A'}</p>
+                            <p className="text-sm text-muted-foreground">Baths</p>
+                        </div>
+                         <div className="flex flex-col items-center gap-1">
+                            <Expand className="h-7 w-7 text-primary" />
+                            <p className="font-bold text-lg">{property.areaSqFt ? property.areaSqFt.toLocaleString('en-IN') : 'N/A'}</p>
+                            <p className="text-sm text-muted-foreground">sqft</p>
+                        </div>
+                    </div>
 
-                         {/* Description */}
-                        <p className="text-sm text-gray-600 mt-4 h-20 overflow-hidden">
-                            {property.description.substring(0, 300)}{property.description.length > 300 ? '...' : ''}
+                    {/* Description */}
+                    <div className="mt-8">
+                        <h2 className="text-xl font-semibold text-primary border-b-2 border-primary/20 pb-2">About this property</h2>
+                        <p className="text-foreground/80 mt-3 text-sm leading-relaxed">
+                            {property.description.substring(0, 400)}{property.description.length > 400 ? '...' : ''}
                         </p>
                     </div>
-                </div>
-
+                </main>
+                
                 {/* Footer */}
-                <div className="mt-6 text-center">
-                    <p className="text-lg font-bold">Contact: {property.owner?.name} - {maskedPhone}</p>
-                    <p className="text-sm text-gray-500 mt-1">For more details and photos, visit Nestil.in</p>
-                    <p className="text-xs text-gray-400 mt-4">Property ID: {property.id}</p>
-                </div>
+                <footer className="mt-auto p-6 bg-secondary/30">
+                    <div className="flex justify-between items-center">
+                         <div>
+                            <p className="font-bold text-lg text-primary">Contact {property.owner?.isAgent ? 'Agent' : 'Owner'}</p>
+                            <p className="text-foreground">{property.owner?.name} - {maskedPhone}</p>
+                         </div>
+                         <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Property ID: {property.id}</p>
+                             <p className="text-xs text-muted-foreground">Visit Nestil.in for more details</p>
+                         </div>
+                    </div>
+                </footer>
             </div>
         </div>
     )
 }
+
 
 export default function AdminPage() {
   const { user: currentUser, isUserLoading } = useUser();
