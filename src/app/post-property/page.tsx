@@ -173,6 +173,22 @@ export default function PostPropertyPage() {
   });
 
   const propertyType = useWatch({ control: form.control, name: 'propertyType' });
+  const city = useWatch({ control: form.control, name: 'city' });
+  const locality = useWatch({ control: form.control, name: 'locality' });
+
+  const handleOpenMap = () => {
+    const query = [locality, city].filter(Boolean).join(', ');
+    if (!query) {
+      toast({
+        variant: 'destructive',
+        title: 'Location Needed',
+        description: 'Please enter a city and locality before opening the map.',
+      });
+      return;
+    }
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    window.open(url, '_blank');
+  };
 
   useEffect(() => {
     try {
@@ -474,7 +490,7 @@ export default function PostPropertyPage() {
                 <Label>Pin Location on Map</Label>
                  <div className="mt-2 p-4 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center">
                     <MapPin className="h-10 w-10 text-muted-foreground mb-2"/>
-                    <Button type="button" variant="outline">Drag & Select on Google Map</Button>
+                    <Button type="button" variant="outline" onClick={handleOpenMap}>Select on Google Map</Button>
                     <p className="text-xs text-muted-foreground mt-2">Location accuracy gets you more calls.</p>
                 </div>
             </div>
