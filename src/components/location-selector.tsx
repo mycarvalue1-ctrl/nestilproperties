@@ -21,7 +21,7 @@ import { MapPin, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 
 
@@ -57,7 +57,7 @@ export function LocationSelector({ className }: { className?: string }) {
   const firestore = useFirestore();
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'properties');
+    return query(collection(firestore, 'properties'), where('isApproved', '==', true));
   }, [firestore]);
   const { data: allProperties } = useCollection<Property>(propertiesQuery);
 
