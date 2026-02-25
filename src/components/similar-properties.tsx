@@ -29,13 +29,22 @@ export function SimilarProperties({ property }: SimilarPropertiesProps) {
     async function fetchRecommendations() {
       setLoading(true);
       setError(null);
-      const result = await getSimilarProperties(property);
-      if (result.success && result.data) {
-        setRecommendations(result.data);
-      } else {
-        setError(result.error || 'An unknown error occurred.');
+      try {
+        // The property object from Firestore may contain non-plain objects (like Timestamps)
+        // that cannot be passed to Server Actions. We create a serializable copy.
+        const serializableProperty = JSON.parse(JSON.stringify(property));
+
+        const result = await getSimilarProperties(serializableProperty);
+        if (result.success && result.data) {
+          setRecommendations(result.data);
+        } else {
+          setError(result.error || 'An unknown error occurred.');
+        }
+      } catch (e: any) {
+        setError(e.message || 'An unexpected error occurred while fetching recommendations.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchRecommendations();
