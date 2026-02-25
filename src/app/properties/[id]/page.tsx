@@ -8,7 +8,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SimilarProperties } from '@/components/similar-properties';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { Property } from '@/lib/types';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
@@ -58,14 +58,26 @@ export default function PropertyDetailPage() {
   const { toast } = useToast();
   const router = useRouter();
   
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to view property details.",
+        variant: "destructive",
+      });
+      router.push('/user-login');
+    }
+  }, [user, isUserLoading, router, toast]);
+
   const propertyRef = useMemoFirebase(() => {
     if (!firestore || !params.id) return null;
     return doc(firestore, 'properties', params.id);
   }, [firestore, params.id]);
 
-  const { data: property, isLoading } = useDoc<Property>(propertyRef);
+  const { data: property, isLoading: isPropertyLoading } = useDoc<Property>(propertyRef);
 
   const handleShowContact = async () => {
     if (!user) {
@@ -134,7 +146,11 @@ export default function PropertyDetailPage() {
   };
 
 
-  if (isLoading) {
+  if (isUserLoading || isPropertyLoading) {
+    return <PropertyDetailSkeleton />;
+  }
+
+  if (!user) {
     return <PropertyDetailSkeleton />;
   }
 
