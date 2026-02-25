@@ -348,6 +348,62 @@ export default function AdminPage() {
     document.body.removeChild(link);
   };
   
+  const handlePropertyCsvDownload = () => {
+    if (!allProperties) return;
+
+    // Sort properties by date added, newest first
+    const sortedProperties = [...allProperties].sort((a, b) => {
+        try {
+            return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
+        } catch (e) {
+            return 0; // if date is invalid, don't sort
+        }
+    });
+
+    const headers = ['id', 'title', 'listingFor', 'propertyType', 'price', 'city', 'address', 'pincode', 'areaSqFt', 'bhk', 'listingStatus', 'dateAdded', 'ownerId', 'ownerName', 'ownerPhone'];
+    
+    const escapeCsvCell = (cell: string | number | boolean | undefined | null) => {
+      if (cell === null || cell === undefined) return '';
+      const cellStr = String(cell);
+      if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+        return `"${cellStr.replace(/"/g, '""')}"`;
+      }
+      return cellStr;
+    };
+
+    const csvContent = [
+      headers.join(','),
+      ...sortedProperties.map(prop => [
+        prop.id,
+        prop.title,
+        prop.listingFor,
+        prop.type,
+        prop.price,
+        prop.city,
+        prop.address,
+        prop.pincode,
+        prop.areaSqFt,
+        prop.bhk,
+        prop.listingStatus,
+        prop.dateAdded,
+        prop.owner?.id,
+        prop.owner?.name,
+        prop.owner?.phone,
+      ].map(v => escapeCsvCell(v)).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().split('T')[0];
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `nestil_properties_${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
     if (typeof date === 'string') {
@@ -584,6 +640,10 @@ export default function AdminPage() {
                             <SelectItem value="lease">For Lease</SelectItem>
                         </SelectContent>
                     </Select>
+                    <Button onClick={handlePropertyCsvDownload}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download CSV
+                    </Button>
                 </div>
             </div>
         </CardHeader>
