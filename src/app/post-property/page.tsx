@@ -47,8 +47,8 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
 
 const amenitiesList = [
@@ -66,7 +66,6 @@ const formSchema = z.object({
   state: z.string().optional(),
   city: z.string({ required_error: "City is required." }).min(1, "City is required."),
   locality: z.string({ required_error: "Area/Locality is required." }).min(1, "Area/Locality is required."),
-  landmark: z.string().optional(),
   pincode: z.string().length(6, "Pincode must be 6 digits."),
   googleMapsLink: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   
@@ -81,6 +80,8 @@ const formSchema = z.object({
   nonVegAllowed: z.boolean().default(true),
   vehicleParking: z.string().optional(),
   photos: z.array(z.any()).max(10, 'You can upload up to 10 photos.').optional(),
+  existingPhotos: z.array(z.string()).optional(),
+
 
   ownerName: z.string({ required_error: "Owner name is required." }).min(1, "Owner name is required."),
   mobile: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit mobile number."),
@@ -127,9 +128,13 @@ export default function PostPropertyPage() {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [propertyId, setPropertyId] = useState<string | null>(null);
+
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -141,7 +146,6 @@ export default function PostPropertyPage() {
       state: 'Andhra Pradesh',
       city: '',
       locality: '',
-      landmark: '',
       pincode: '',
       googleMapsLink: '',
       price: 0,
@@ -154,6 +158,7 @@ export default function PostPropertyPage() {
       nonVegAllowed: true,
       vehicleParking: 'None',
       photos: [],
+      existingPhotos: [],
       ownerName: '',
       mobile: '',
       whatsAppAvailable: true,
@@ -175,21 +180,56 @@ export default function PostPropertyPage() {
   });
 
   const propertyType = useWatch({ control: form.control, name: 'propertyType' });
+  const watchedCity = useWatch({ control: form.control, name: 'city' });
+  const watchedLocality = useWatch({ control: form.control, name: 'locality' });
 
+
+  // This new effect syncs the form's location TO the global state (localStorage)
+  useEffect(() => {
+    const updateGlobalFromForm = () => {
+      if (!watchedCity || !watchedLocality) {
+        return;
+      }
+      
+      try {
+        const locationJson = localStorage.getItem('userLocation');
+        const currentLocation = locationJson ? JSON.parse(locationJson) : {};
+
+        const newLocation = {
+          state: form.getValues('state') || 'Andhra Pradesh',
+          district: watchedCity,
+          locality: watchedLocality,
+        };
+
+        if (newLocation.district !== currentLocation.district || newLocation.locality !== currentLocation.locality) {
+          localStorage.setItem('userLocation', JSON.stringify(newLocation));
+          window.dispatchEvent(new CustomEvent('location-changed'));
+        }
+      } catch (error) {
+        console.error("Could not update global location from form input", error);
+      }
+    };
+    
+    updateGlobalFromForm();
+  }, [watchedCity, watchedLocality, form]);
+
+
+  // This existing effect syncs the global state FROM localStorage to the form
   useEffect(() => {
     const updateLocationFields = () => {
+      if (isEditing) return; // Don't override form values when editing
       try {
         const locationJson = localStorage.getItem('userLocation');
         if (locationJson) {
           const savedLocation = JSON.parse(locationJson);
           if (savedLocation.state) {
-            form.setValue('state', savedLocation.state);
+            form.setValue('state', savedLocation.state, { shouldValidate: true });
           }
           if (savedLocation.district) {
-            form.setValue('city', savedLocation.district);
+            form.setValue('city', savedLocation.district, { shouldValidate: true });
           }
           if (savedLocation.locality) {
-            form.setValue('locality', savedLocation.locality);
+            form.setValue('locality', savedLocation.locality, { shouldValidate: true });
           }
         }
       } catch (error) {
@@ -207,7 +247,73 @@ export default function PostPropertyPage() {
     return () => {
       window.removeEventListener('location-changed', updateLocationFields);
     };
-  }, [form]);
+  }, [form, isEditing]);
+  
+  
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && firestore && user) {
+        setIsEditing(true);
+        setPropertyId(editId);
+        const fetchPropertyData = async () => {
+            const docRef = doc(firestore, 'properties', editId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.ownerId !== user.uid) {
+                    toast({ variant: 'destructive', title: 'Unauthorized', description: "You don't have permission to edit this property." });
+                    router.push('/dashboard/my-properties');
+                    return;
+                }
+
+                form.reset({
+                    propertyType: data.propertyType,
+                    listingFor: data.listingFor,
+                    title: data.title,
+                    description: data.description,
+                    state: data.state || 'Andhra Pradesh',
+                    city: data.city,
+                    locality: data.address, // map address back to locality
+                    pincode: data.pincode,
+                    googleMapsLink: data.googleMapsLink,
+                    price: data.price,
+                    negotiable: data.negotiable ? 'Yes' : 'No',
+                    maintenance: data.maintenance,
+                    deposit: data.deposit,
+                    availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
+                    preferredTenants: data.preferredTenants,
+                    amenities: data.amenities,
+                    nonVegAllowed: data.nonVegAllowed,
+                    vehicleParking: data.vehicleParking,
+                    existingPhotos: data.photos,
+                    photos: [],
+                    ownerName: data.owner?.name,
+                    mobile: data.owner?.phone,
+                    whatsAppAvailable: data.owner?.whatsAppAvailable ?? true,
+                    postedBy: data.owner?.isAgent ? 'Agent' : 'Owner',
+                    details: {
+                        bhk: data.bhk,
+                        bathrooms: String(data.baths || ''),
+                        floor: data.floor,
+                        totalFloors: data.totalFloors,
+                        area: data.areaSqFt,
+                        facing: data.facing,
+                        age: data.age,
+                        furnishing: data.furnishing,
+                        plotArea: data.plotArea,
+                        roadWidth: data.roadWidth,
+                        approved: data.dtcpApproved ? 'Yes' : 'No',
+                    },
+                });
+            } else {
+                toast({ variant: 'destructive', title: 'Not Found', description: 'Property not found.' });
+                router.push('/dashboard/my-properties');
+            }
+        };
+        fetchPropertyData();
+    }
+  }, [searchParams, firestore, user, form, router, toast]);
 
   const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
       e.preventDefault();
@@ -238,9 +344,10 @@ export default function PostPropertyPage() {
               });
               return;
           }
-
+          
           const currentFiles = field.value || [];
-          if (currentFiles.length + filesArray.length > 10) {
+          const currentExisting = form.getValues('existingPhotos') || [];
+          if (currentFiles.length + currentExisting.length + filesArray.length > 10) {
               toast({
                   variant: "destructive",
                   title: "Upload limit exceeded",
@@ -261,22 +368,22 @@ export default function PostPropertyPage() {
         title: "Authentication Error",
         description: "You must be logged in to post a property.",
       });
+      router.push('/user-login');
       return;
     }
     
     setIsSubmitting(true);
 
     try {
-      let photoURLs: string[] = [];
+      let uploadedPhotoURLs: string[] = [];
       if (values.photos && values.photos.length > 0) {
         
         const imagekit = new ImageKit({
-            publicKey: "public_xSP0ZH+P7dHoDN1lZHj3PsTHYik=",
-            urlEndpoint: "https://ik.imagekit.io/ilk0tj3rj",
+            publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
+            urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
         });
 
         const uploadPromises = values.photos.map(async (file) => {
-          // Fetch new auth params for each file
           const authRes = await fetch('/api/imagekit/auth');
           if (!authRes.ok) {
               throw new Error(`Failed to authenticate ImageKit for ${file.name}.`);
@@ -292,40 +399,32 @@ export default function PostPropertyPage() {
         });
         
         const results = await Promise.all(uploadPromises);
-        photoURLs = results.map(res => res.url);
+        uploadedPhotoURLs = results.map(res => res.url);
       }
+      
+      const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
 
       const docData = {
-        // Basic Info
         title: values.title,
         description: values.description,
         propertyType: values.propertyType,
-        type: values.propertyType, // For consistency with type def
+        type: values.propertyType,
         listingFor: values.listingFor,
-        status: `For ${values.listingFor}`, // For consistency with type def
-
-        // Location
+        status: `For ${values.listingFor}`,
         city: values.city,
-        address: values.locality, // Using locality as main address part
+        address: values.locality,
         pincode: values.pincode,
-        landmark: values.landmark,
         googleMapsLink: values.googleMapsLink,
-
-        // Price
         price: values.price,
         negotiable: values.negotiable === 'Yes',
         maintenance: values.maintenance,
         deposit: values.deposit,
-
-        // Availability
         availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
         preferredTenants: values.preferredTenants,
-
-        // Details from the nested 'details' object
         areaSqFt: values.details.area || values.details.plotArea || 0,
         bhk: values.details.bhk || '',
-        beds: Number(values.details.bhk.charAt(0) || '0'),
-        baths: Number(values.details.bathrooms.charAt(0) || '0'),
+        beds: Number(values.details.bhk?.charAt(0) || '0'),
+        baths: Number(values.details.bathrooms?.charAt(0) || '0'),
         furnishing: values.details.furnishing,
         floor: values.details.floor,
         totalFloors: values.details.totalFloors,
@@ -334,49 +433,49 @@ export default function PostPropertyPage() {
         plotArea: values.details.plotArea,
         roadWidth: values.details.roadWidth,
         dtcpApproved: values.details.approved === 'Yes',
-
-        // Amenities
         amenities: values.amenities || [],
         nonVegAllowed: values.nonVegAllowed,
         vehicleParking: values.vehicleParking,
-        
-        // Photos
-        photos: photoURLs.length > 0 ? photoURLs : ['https://picsum.photos/seed/property/800/600'],
-
-        // Owner Info (Denormalized)
+        photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
         ownerId: user.uid,
         owner: {
           id: user.uid,
           name: values.ownerName,
           phone: values.mobile,
           isAgent: values.postedBy === 'Agent',
-          verified: true, // Assuming logged-in user's info is verified
+          verified: true,
         },
-
-        // System-generated fields
-        postedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        dateAdded: new Date().toISOString(), // For sortability and display
-        isApproved: false, // All new properties need approval
-        listingStatus: 'pending',
-        isFeatured: false,
-        isNew: true,
-        isUrgent: false,
-        nearbyPlaces: [], // The form does not collect this yet
       };
-
-      await addDoc(collection(firestore, 'properties'), docData);
-
-      toast({
-        title: "Submission Successful!",
-        description: "Your property has been submitted for approval.",
-      });
       
+      if (isEditing && propertyId && firestore) {
+        const docRef = doc(firestore, 'properties', propertyId);
+        await updateDoc(docRef, {
+            ...docData,
+            listingStatus: 'pending', // Reset status on edit to require re-approval
+            isApproved: false,
+        });
+        toast({ title: "Update Successful!", description: "Your property has been updated and sent for re-approval." });
+      } else if (firestore) {
+         await addDoc(collection(firestore, 'properties'), {
+            ...docData,
+            postedAt: serverTimestamp(),
+            dateAdded: new Date().toISOString(),
+            isApproved: false,
+            listingStatus: 'pending',
+            isFeatured: false,
+            isNew: true,
+            isUrgent: false,
+            nearbyPlaces: [],
+        });
+        toast({ title: "Submission Successful!", description: "Your property has been submitted for approval." });
+      }
+
       form.reset();
       router.push('/dashboard/my-properties');
 
     } catch (error: any) {
-      console.error('Error adding document: ', error);
+      console.error('Error processing property: ', error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
@@ -386,14 +485,22 @@ export default function PostPropertyPage() {
       setIsSubmitting(false);
     }
   }
+  
+  const handleMapClick = () => {
+    const city = form.getValues('city');
+    const locality = form.getValues('locality');
+    const query = encodeURIComponent(`${locality}, ${city}, ${form.getValues('state')}`);
+    const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    window.open(url, '_blank');
+  };
 
   return (
     <div className="container py-12">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto">
           <div className="text-center">
-            <h1 className="text-3xl font-bold font-headline">Post a New Property</h1>
-            <p className="text-muted-foreground mt-2">Fill in the details below to put your property on the market.</p>
+            <h1 className="text-3xl font-bold font-headline">{isEditing ? 'Edit Property' : 'Post a New Property'}</h1>
+            <p className="text-muted-foreground mt-2">{isEditing ? 'Update the details of your property.' : 'Fill in the details below to put your property on the market.'}</p>
           </div>
 
           <FormSection title="Basic Information" description="Start with the essential details about your property.">
@@ -401,7 +508,7 @@ export default function PostPropertyPage() {
                 <FormField control={form.control} name="propertyType" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Property Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select property type" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {['Apartment', 'Independent House', 'Villa', 'Plot', 'Commercial', 'PG'].map(type => 
@@ -417,7 +524,7 @@ export default function PostPropertyPage() {
                   <FormItem>
                     <FormLabel>Listing For</FormLabel>
                     <FormControl>
-                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4 pt-2">
+                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} value={field.value} className="flex items-center space-x-4 pt-2">
                            {['Sale', 'Rent', 'Lease'].map(type => (
                              <FormItem key={type} className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value={type} id={`listing-${type}`} /></FormControl>
@@ -471,27 +578,20 @@ export default function PostPropertyPage() {
                         <FormMessage />
                     </FormItem>
                 )} />
-                <FormField control={form.control} name="landmark" render={({ field }) => (
+                <FormField control={form.control} name="pincode" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Landmark</FormLabel>
-                        <FormControl><Input placeholder="e.g., Near RTC Bus Stand" {...field} /></FormControl>
+                        <FormLabel>Pincode</FormLabel>
+                        <FormControl><Input placeholder="6-digit pincode" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
              </div>
-             <FormField control={form.control} name="pincode" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Pincode</FormLabel>
-                    <FormControl><Input placeholder="6-digit pincode" {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
             <FormField control={form.control} name="googleMapsLink" render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Google Maps Link</FormLabel>
+                    <FormLabel>Google Maps Link (Optional)</FormLabel>
                     <FormControl><Input placeholder="Paste Google Maps share link here" {...field} /></FormControl>
                     <FormDescription>
-                        Open Google Maps, find the property, click 'Share', and copy the link.
+                        Open Google Maps, find the property, click Share, and copy the link.
                     </FormDescription>
                     <FormMessage />
                 </FormItem>
@@ -511,7 +611,7 @@ export default function PostPropertyPage() {
                         <FormItem>
                             <FormLabel>Negotiable?</FormLabel>
                              <FormControl>
-                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4 pt-2">
+                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} value={field.value} className="flex items-center space-x-4 pt-2">
                                     <FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="Yes" id="neg-yes" /></FormControl><Label htmlFor="neg-yes">Yes</Label></FormItem>
                                     <FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="No" id="neg-no" /></FormControl><Label htmlFor="neg-no">No</Label></FormItem>
                                 </RadioGroup>
@@ -559,7 +659,7 @@ export default function PostPropertyPage() {
                         <FormItem>
                             <FormLabel>Preferred Tenants</FormLabel>
                              <FormControl>
-                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4 pt-2">
+                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} value={field.value} className="flex items-center space-x-4 pt-2">
                                      {['Family', 'Bachelor', 'Anyone'].map(type => (
                                         <FormItem key={type} className="flex items-center space-x-2 space-y-0">
                                             <FormControl><RadioGroupItem value={type} id={`tenant-${type}`} /></FormControl>
@@ -578,25 +678,25 @@ export default function PostPropertyPage() {
               {['Apartment', 'Independent House', 'Villa'].includes(propertyType) && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <FormField control={form.control} name="details.bhk" render={({ field }) => (<FormItem><FormLabel>BHK</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Beds"/></SelectTrigger></FormControl><SelectContent>{['1', '2', '3', '4+'].map(v => <SelectItem key={v} value={v}>{v} BHK</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="details.bathrooms" render={({ field }) => (<FormItem><FormLabel>Bathrooms</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Baths"/></SelectTrigger></FormControl><SelectContent>{['1', '2', '3', '4+'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="details.bhk" render={({ field }) => (<FormItem><FormLabel>BHK</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Beds"/></SelectTrigger></FormControl><SelectContent>{['1', '2', '3', '4+'].map(v => <SelectItem key={v} value={`${v} BHK`}>{v} BHK</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="details.bathrooms" render={({ field }) => (<FormItem><FormLabel>Bathrooms</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Baths"/></SelectTrigger></FormControl><SelectContent>{['1', '2', '3', '4+'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="details.floor" render={({ field }) => (<FormItem><FormLabel>Floor</FormLabel><FormControl><Input placeholder="e.g., 3" {...field}/></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="details.totalFloors" render={({ field }) => (<FormItem><FormLabel>Total Floors</FormLabel><FormControl><Input placeholder="e.g., 5" {...field}/></FormControl><FormMessage /></FormItem>)} />
                   </div>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                        <FormField control={form.control} name="details.area" render={({ field }) => (<FormItem><FormLabel>Built-up Area (sqft)</FormLabel><FormControl><Input type="number" placeholder="e.g., 1200" {...field}/></FormControl><FormMessage /></FormItem>)} />
-                       <FormField control={form.control} name="details.facing" render={({ field }) => (<FormItem><FormLabel>Facing</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select direction"/></SelectTrigger></FormControl><SelectContent>{['East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                       <FormField control={form.control} name="details.facing" render={({ field }) => (<FormItem><FormLabel>Facing</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select direction"/></SelectTrigger></FormControl><SelectContent>{['East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                        <FormField control={form.control} name="details.age" render={({ field }) => (<FormItem><FormLabel>Age of Property</FormLabel><FormControl><Input placeholder="e.g., 2 years" {...field}/></FormControl><FormMessage /></FormItem>)} />
                    </div>
-                   <FormField control={form.control} name="details.furnishing" render={({ field }) => (<FormItem><FormLabel>Furnishing</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">{['Unfurnished', 'Semi-furnished', 'Fully-furnished'].map(type => (<FormItem key={type} className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value={type} id={`furnish-${type}`} /></FormControl><Label htmlFor={`furnish-${type}`}>{type}</Label></FormItem>))}</RadioGroup></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="details.furnishing" render={({ field }) => (<FormItem><FormLabel>Furnishing</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} value={field.value} className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">{['Unfurnished', 'Semi-furnished', 'Fully-furnished'].map(type => (<FormItem key={type} className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value={type} id={`furnish-${type}`} /></FormControl><Label htmlFor={`furnish-${type}`}>{type}</Label></FormItem>))}</RadioGroup></FormControl><FormMessage /></FormItem>)} />
                 </div>
               )}
               {propertyType === 'Plot' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField control={form.control} name="details.plotArea" render={({ field }) => (<FormItem><FormLabel>Plot Area (sq yards)</FormLabel><FormControl><Input type="number" placeholder="e.g., 200" {...field}/></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="details.facing" render={({ field }) => (<FormItem><FormLabel>Plot Facing</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select direction"/></SelectTrigger></FormControl><SelectContent>{['East', 'West', 'North', 'South'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="details.facing" render={({ field }) => (<FormItem><FormLabel>Plot Facing</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select direction"/></SelectTrigger></FormControl><SelectContent>{['East', 'West', 'North', 'South'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="details.roadWidth" render={({ field }) => (<FormItem><FormLabel>Road Width (ft)</FormLabel><FormControl><Input type="number" placeholder="e.g., 40" {...field}/></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="details.approved" render={({ field }) => (<FormItem><FormLabel>DTCP / RERA Approved?</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4 pt-2"><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="Yes" /></FormControl><Label>Yes</Label></FormItem><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="No" /></FormControl><Label>No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="details.approved" render={({ field }) => (<FormItem><FormLabel>DTCP / RERA Approved?</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} value={field.value} className="flex items-center space-x-4 pt-2"><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="Yes" /></FormControl><Label>Yes</Label></FormItem><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="No" /></FormControl><Label>No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} />
                   </div>
               )}
             </FormSection>
@@ -647,7 +747,7 @@ export default function PostPropertyPage() {
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>Vehicle Parking</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select parking details" /></SelectTrigger></FormControl>
                             <SelectContent>
                             {['None', '1 Car', '2 Cars', '1 Bike', '2 Bikes', '1 Car & 1 Bike'].map(type => 
@@ -707,7 +807,8 @@ export default function PostPropertyPage() {
                           if (e.target.files) {
                             const filesArray = Array.from(e.target.files);
                             const currentFiles = field.value || [];
-                            if (currentFiles.length + filesArray.length > 10) {
+                            const currentExisting = form.getValues('existingPhotos') || [];
+                            if (currentFiles.length + currentExisting.length + filesArray.length > 10) {
                               toast({
                                 variant: "destructive",
                                 title: "Upload limit exceeded",
@@ -722,9 +823,32 @@ export default function PostPropertyPage() {
                     </div>
                   </FormControl>
                   <FormMessage />
-                  {field.value && field.value.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
-                      {field.value.map((file: File, index: number) => (
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                      {form.getValues('existingPhotos')?.map((url: string, index: number) => (
+                          <div key={index} className="relative group">
+                            <Image
+                                src={url}
+                                alt={`existing photo ${index}`}
+                                width={150}
+                                height={150}
+                                className="w-full h-32 object-cover rounded-lg"
+                            />
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => {
+                                const newExisting = form.getValues('existingPhotos')?.filter((_: any, i: number) => i !== index);
+                                form.setValue('existingPhotos', newExisting);
+                                }}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                            </div>
+                      ))}
+                      {field.value?.map((file: File, index: number) => (
                         <div key={index} className="relative group">
                           <Image
                             src={URL.createObjectURL(file)}
@@ -748,7 +872,7 @@ export default function PostPropertyPage() {
                         </div>
                       ))}
                     </div>
-                  )}
+
                 </FormItem>
               )}
             />
@@ -768,7 +892,7 @@ export default function PostPropertyPage() {
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5">
                             <FormLabel>WhatsApp Available?</FormLabel>
-                            <FormDescription>Can buyers contact you on WhatsApp?</FormDescription>
+                            <FormDescription className="text-xs">Can buyers contact you on WhatsApp?</FormDescription>
                         </div>
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange}/></FormControl>
                     </FormItem>
@@ -777,7 +901,7 @@ export default function PostPropertyPage() {
                     <FormItem>
                         <FormLabel>You are a...</FormLabel>
                         <FormControl>
-                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4 pt-2">
+                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} value={field.value} className="flex items-center space-x-4 pt-2">
                                 {['Owner', 'Agent', 'Builder'].map(type => (
                                 <FormItem key={type} className="flex items-center space-x-2 space-y-0">
                                     <FormControl><RadioGroupItem value={type} id={`postedby-${type}`} /></FormControl>
@@ -796,10 +920,10 @@ export default function PostPropertyPage() {
             {isSubmitting ? (
               <>
                 <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-                Submitting...
+                {isEditing ? 'Updating...' : 'Submitting...'}
               </>
             ) : (
-              'Submit for Approval'
+                isEditing ? 'Update Property' : 'Submit for Approval'
             )}
           </Button>
         </form>
@@ -807,5 +931,3 @@ export default function PostPropertyPage() {
     </div>
   );
 }
-
-    
