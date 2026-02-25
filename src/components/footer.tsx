@@ -15,7 +15,7 @@ export function Footer() {
           <div className="flex flex-col gap-2">
             <h4 className="font-semibold">Company</h4>
             <Link href="/about" className="text-sm text-muted-foreground hover:text-primary">About Us</Link>
-            <Link href="#" className="text-sm text-muted-foreground hover:text-primary">Contact</Link>
+            <Link href="/contact" className="text-sm text-muted-foreground hover:text-primary">Contact</Link>
           </div>
           <div className="flex flex-col gap-2">
             <h4 className="font-semibold">Quick Links</h4>
@@ -25,8 +25,8 @@ export function Footer() {
           </div>
           <div className="flex flex-col gap-2">
             <h4 className="font-semibold">Legal</h4>
-            <Link href="#" className="text-sm text-muted-foreground hover:text-primary">Privacy Policy</Link>
-            <Link href="#" className="text-sm text-muted-foreground hover:text-primary">Terms of Service</Link>
+            <Link href="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary">Privacy Policy</Link>
+            <Link href="/terms-of-service" className="text-sm text-muted-foreground hover:text-primary">Terms of Service</Link>
           </div>
         </div>
         <div className="mt-8 border-t pt-6 text-center">
