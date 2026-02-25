@@ -1,3 +1,4 @@
+
 import type { Property } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import Image from 'next/image';
@@ -6,6 +7,7 @@ import Link from 'next/link';
 import { MapPin, Phone, CheckCircle, Sparkles, Flame } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { differenceInDays, parseISO } from 'date-fns';
 
 const WhatsappIcon = () => (
   <svg
@@ -28,6 +30,8 @@ export function PropertyCard({ property }: PropertyCardProps) {
     .filter((a) => keyAmenities.some(ka => a.toLowerCase().includes(ka.toLowerCase())))
     .slice(0, 2);
   const ownerType = property.owner?.isAgent ? 'Agent' : 'Owner';
+  
+  const isJustListed = property.dateAdded ? differenceInDays(new Date(), parseISO(property.dateAdded)) <= 3 : false;
 
   return (
     <Card className="group w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col bg-card relative">
@@ -47,9 +51,9 @@ export function PropertyCard({ property }: PropertyCardProps) {
             {property.featured && (
                 <Badge>Featured</Badge>
             )}
-             {property.isNew && (
+             {isJustListed && (
                 <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                    <Sparkles className="mr-1 h-3 w-3" /> New
+                    <Sparkles className="mr-1 h-3 w-3" /> Just Listed
                 </Badge>
             )}
             {property.isUrgent && (
