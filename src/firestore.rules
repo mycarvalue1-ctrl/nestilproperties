@@ -43,22 +43,18 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-        // GET rule: Allow reading a single document if it's approved, or if the user is the owner or an admin.
-        // This is safe because it operates on a single document's data.
-        allow get: if (resource.data.isApproved == true) || 
-                     (isSignedIn() && isOwner(resource.data.ownerId)) || 
-                     isAdmin();
+      // READ: A property can be read if it's approved, OR if the user is the owner, OR if the user is an admin.
+      // This single rule applies to both individual 'get' requests and 'list' queries.
+      // For public list queries, the client MUST include `where('isApproved', '==', true)` to satisfy this rule.
+      allow read: if (resource.data.isApproved == true) ||
+                   (isSignedIn() && isOwner(resource.data.ownerId)) ||
+                   isAdmin();
 
-        // LIST rule: This is intentionally permissive because the client-side code is already
-        // securely filtering to only show approved properties to the public.
-        // This separation resolves a conflict that was causing the `get` rule to fail.
-        allow list: if true;
+      // CREATE: Any signed-in user can create a property for themselves.
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
 
-        // CREATE: Any signed-in user can create a property for themselves.
-        allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-
-        // UPDATE / DELETE: Only the owner or an admin can modify/delete.
-        allow update, delete: if (isSignedIn() && isOwner(resource.data.ownerId)) || isAdmin();
+      // UPDATE / DELETE: Only the owner or an admin can modify/delete.
+      allow update, delete: if (isSignedIn() && isOwner(resource.data.ownerId)) || isAdmin();
     }
 
 
