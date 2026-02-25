@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SimilarProperties } from '@/components/similar-properties';
 import { useState, useEffect } from 'react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { Property } from '@/lib/types';
@@ -358,8 +357,6 @@ export default function PropertyDetailPage() {
                         </>
                     )}
                 </Card>
-
-                <SimilarProperties property={property} />
             </div>
         </div>
       </div>
