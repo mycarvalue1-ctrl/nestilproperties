@@ -95,16 +95,11 @@ export function PropertyCard({ property }: PropertyCardProps) {
           </div>
         </div>
 
-        <div className="flex gap-2 pt-3 mt-auto relative z-20">
-          <Button asChild className="w-full" variant="outline">
-            <a href={`tel:${property.owner?.phone}`} onClick={(e) => e.stopPropagation()}>
-              <Phone className="mr-2 h-4 w-4" /> Call
-            </a>
-          </Button>
-          <Button asChild className="w-full bg-green-500 hover:bg-green-600 text-white" >
-            <a href={`https://wa.me/${(property.owner?.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-              <WhatsappIcon /> WhatsApp
-            </a>
+        <div className="pt-3 mt-auto relative z-20">
+          <Button asChild className="w-full">
+            <Link href={`/properties/${property.id}`} target="_blank">
+              View Details
+            </Link>
           </Button>
         </div>
       </CardContent>
