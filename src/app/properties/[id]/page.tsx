@@ -13,7 +13,6 @@ import type { Property } from '@/lib/types';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { SimilarProperties } from '@/components/similar-properties';
 
 const WhatsappIcon = () => (
     <svg
@@ -387,7 +386,6 @@ export default function PropertyDetailPage() {
                         </>
                     )}
                 </Card>
-                <SimilarProperties property={property} />
             </div>
         </div>
       </div>
