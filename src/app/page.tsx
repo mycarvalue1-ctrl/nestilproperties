@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { PropertyCard, PropertyCardSkeleton } from '@/components/property-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -81,10 +81,21 @@ export default function Home() {
   }, [approvedProperties, propertiesLoading, sortBy]);
 
 
-  const localAreas =
-    locationData[0]?.districts
-      .flatMap((d) => d.localities.map((l) => ({ ...l, district: d.name })))
-      .slice(0, 10) || [];
+  const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
+
+  useEffect(() => {
+    const allLocalAreas =
+      locationData[0]?.districts
+        .flatMap((d) => d.localities.map((l) => ({ ...l, district: d.name }))) || [];
+    
+    // Fisher-Yates shuffle algorithm to shuffle in place
+    for (let i = allLocalAreas.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allLocalAreas[i], allLocalAreas[j]] = [allLocalAreas[j], allLocalAreas[i]];
+    }
+
+    setShuffledLocalAreas(allLocalAreas.slice(0, 10));
+  }, []); // Empty dependency array ensures this runs once on the client after mount.
       
 
   return (
@@ -253,7 +264,7 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {localAreas.map((locality) => (
+            {shuffledLocalAreas.map((locality) => (
               <Link
                 key={locality.name}
                 href={`/properties?location=${locality.name}`}
