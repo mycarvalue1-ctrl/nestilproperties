@@ -61,6 +61,7 @@ const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, in
     if (!property) return null;
 
     const photoUrl = (property.photos && property.photos.length > 0) ? property.photos[0] : 'https://placehold.co/800x600/e2e8f0/e2e8f0?text=No+Image';
+    const maskedPhone = property.owner?.phone ? `******${property.owner.phone.slice(-4)}` : 'N/A';
 
     return (
         <div ref={innerRef} className="w-[595px] p-10 bg-white text-black fixed -z-10 -left-[9999px] font-sans">
@@ -71,7 +72,7 @@ const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, in
             <p className="text-sm text-gray-500">Your Nearby Property Marketplace</p>
             <div className="my-4 border-t border-gray-300"></div>
             
-            <img src={photoUrl} crossOrigin="anonymous" className="w-full h-60 object-cover my-4 rounded-md" alt={property.title} />
+            <img src={photoUrl} crossOrigin="anonymous" className="w-full h-96 object-cover my-4 rounded-md" alt={property.title} />
 
             <h1 className="text-xl font-bold mt-4">{property.title}</h1>
             <p className="text-gray-600 text-sm">{property.address}, {property.city}</p>
@@ -96,7 +97,7 @@ const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, in
             <p className="text-xs text-gray-700 my-4 h-16 overflow-hidden">{property.description.substring(0, 250)}{property.description.length > 250 ? '...' : ''}</p>
 
             <div className="my-4 border-t border-gray-300"></div>
-            <p className="text-center text-md font-bold text-gray-800">Contact: {property.owner?.name} - {property.owner?.phone}</p>
+            <p className="text-center text-md font-bold text-gray-800">Contact: {property.owner?.name} - {maskedPhone}</p>
             <p className="text-center text-xs text-gray-500 mt-1">Visit Nestil.in for more details</p>
         </div>
     )
