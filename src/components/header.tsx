@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { Menu, Search, User, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import {
   DropdownMenu,
@@ -151,6 +156,7 @@ export function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
               <Logo />
                <div className="mt-8">
                 <LocationSelector className="w-full justify-between p-2 hover:bg-accent rounded-md" />
