@@ -417,12 +417,7 @@ export default function PostPropertyPage() {
               <FormField control={form.control} name="title" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Property Title</FormLabel>
-                    <div className="relative">
-                        <FormControl><Input placeholder="e.g., 2BHK House near Bus Stand" {...field} /></FormControl>
-                        <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-auto py-0.5 px-2 text-primary hover:bg-primary/10">
-                            <Sparkles className="mr-1 h-4 w-4"/> Auto-generate
-                        </Button>
-                    </div>
+                    <FormControl><Input placeholder="e.g., 2BHK House near Bus Stand" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
               )} />
