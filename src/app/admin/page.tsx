@@ -2,7 +2,7 @@
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
 import type { User as AppUser, Property } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
@@ -158,6 +158,11 @@ export default function AdminPage() {
   const [pdfProperty, setPdfProperty] = useState<Property | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
+  const [userSearch, setUserSearch] = useState('');
+  const [propertySearch, setPropertySearch] = useState('');
+  const [propertyStatusFilter, setPropertyStatusFilter] = useState('all');
+  const [propertyTypeFilter, setPropertyTypeFilter] = useState('all');
+
   useEffect(() => {
     const generatePdf = async () => {
         if (pdfProperty && pdfRef.current) {
@@ -219,6 +224,31 @@ export default function AdminPage() {
     return collection(firestore, 'users');
   }, [firestore, isAdmin]);
   const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter(user =>
+      user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+      user.phone?.includes(userSearch)
+    );
+  }, [users, userSearch]);
+
+  const filteredProperties = useMemo(() => {
+    if (!allProperties) return [];
+    return allProperties.filter(prop => {
+      const statusMatch = propertyStatusFilter === 'all'
+        ? prop.listingStatus !== 'archived'
+        : prop.listingStatus === propertyStatusFilter;
+
+      const typeMatch = propertyTypeFilter === 'all' || prop.listingFor.toLowerCase() === propertyTypeFilter.toLowerCase();
+
+      const searchMatch = prop.title.toLowerCase().includes(propertySearch.toLowerCase()) ||
+                          prop.address.toLowerCase().includes(propertySearch.toLowerCase());
+
+      return statusMatch && typeMatch && searchMatch;
+    });
+  }, [allProperties, propertySearch, propertyStatusFilter, propertyTypeFilter]);
   
   if (isUserLoading || !isAdmin || propertiesLoading || usersLoading) {
     if (isUserLoading || propertiesLoading || usersLoading) {
@@ -283,15 +313,15 @@ export default function AdminPage() {
       }
   };
 
-  const handleDeleteProperty = async (propertyId: string) => {
-      if (!firestore) return;
-      if (!window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) return;
-      try {
-        await deleteDoc(doc(firestore, 'properties', propertyId));
-        toast({ title: "Property Deleted", description: "The property listing has been removed." });
-      } catch (error) {
-        toast({ title: "Error", description: "Could not delete property.", variant: "destructive" });
-      }
+  const handleArchiveProperty = async (propertyId: string) => {
+    if (!firestore) return;
+    if (!window.confirm("Are you sure you want to archive this property? It will be hidden from public view but not permanently deleted.")) return;
+    try {
+      await updateDoc(doc(firestore, 'properties', propertyId), { listingStatus: 'archived' });
+      toast({ title: "Property Archived", description: "The property listing has been archived." });
+    } catch (error) {
+      toast({ title: "Error", description: "Could not archive property.", variant: "destructive" });
+    }
   };
   
   const handleMarkAsSoldRented = async (propertyId: string, currentStatus: string) => {
@@ -478,13 +508,13 @@ export default function AdminPage() {
           <div>
             <CardTitle className="flex items-center gap-2"><Users /> User Management</CardTitle>
             <CardDescription>
-              A total of {usersCount} users found. Search by phone number.
+              A total of {usersCount} users found. Search by name, email, or phone.
             </CardDescription>
           </div>
            <div className="flex items-center gap-4">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search phone..." className="pl-10"/>
+                <Input placeholder="Search users..." className="pl-10" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
             </div>
             <Button onClick={handleUserCsvDownload}>
                 <Download className="mr-2 h-4 w-4" />
@@ -505,7 +535,7 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users && users.map((user) => (
+              {filteredUsers && filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">
                     <div>{user.name}</div>
@@ -614,22 +644,23 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search title or area..." className="pl-10"/>
+                        <Input placeholder="Search title or area..." className="pl-10" value={propertySearch} onChange={(e) => setPropertySearch(e.target.value)} />
                     </div>
-                    <Select>
+                    <Select value={propertyStatusFilter} onValueChange={setPropertyStatusFilter}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Filter by Status" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="all">Active Listings</SelectItem>
                             <SelectItem value="approved">Approved</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="rejected">Rejected</SelectItem>
                             <SelectItem value="sold">Sold</SelectItem>
                             <SelectItem value="rented">Rented</SelectItem>
+                            <SelectItem value="archived">Archived</SelectItem>
                         </SelectContent>
                     </Select>
-                     <Select>
+                     <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Filter by Type" />
                         </SelectTrigger>
@@ -659,7 +690,7 @@ export default function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-               {allProperties && allProperties.map((prop) => (
+               {filteredProperties && filteredProperties.map((prop) => (
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -671,11 +702,14 @@ export default function AdminPage() {
                        <Badge variant={
                            prop.listingStatus === 'approved' ? 'default' : 
                            prop.listingStatus === 'pending' ? 'secondary' :
-                           prop.listingStatus === 'sold' || prop.listingStatus === 'rented' ? 'outline' : 'destructive'
+                           prop.listingStatus === 'sold' || prop.listingStatus === 'rented' ? 'outline' : 
+                           prop.listingStatus === 'archived' ? 'secondary' :
+                           'destructive'
                         } className="capitalize flex items-center gap-1 w-fit">
                            {prop.listingStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
                            {prop.listingStatus === 'pending' && <Clock className="h-3 w-3" />}
                            {prop.listingStatus === 'rejected' && <XCircle className="h-3 w-3" />}
+                           {prop.listingStatus === 'archived' && <Archive className="h-3 w-3" />}
                            {prop.listingStatus}
                        </Badge>
                     </TableCell>
@@ -707,10 +741,10 @@ export default function AdminPage() {
                                 <Download className="mr-2 h-4 w-4" />Download PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                                className="text-red-600 focus:text-red-600 cursor-pointer"
-                                onClick={() => handleDeleteProperty(prop.id)}
+                                className="text-orange-600 focus:text-orange-600 cursor-pointer"
+                                onClick={() => handleArchiveProperty(prop.id)}
                             >
-                                <Trash2 className="mr-2 h-4 w-4" />Delete
+                                <Archive className="mr-2 h-4 w-4" />Archive
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

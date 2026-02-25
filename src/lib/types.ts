@@ -30,7 +30,7 @@ export type Property = {
   bhk?: string;
   furnishing?: 'Furnished' | 'Semi-furnished' | 'Unfurnished';
   featured: boolean;
-  listingStatus: 'approved' | 'pending' | 'rejected' | 'rented' | 'sold';
+  listingStatus: 'approved' | 'pending' | 'rejected' | 'rented' | 'sold' | 'archived';
   dateAdded: string;
   isNew?: boolean;
   isUrgent?: boolean;
