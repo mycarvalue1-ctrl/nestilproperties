@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -52,8 +53,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
 
 const amenitiesList = [
-  'Lift', 'Borewell Water', 'Municipal Water', 'Power Backup',
-  'Security', 'CCTV', 'Gated Community', 'Balcony', 'Terrace Access', 'Pets Allowed'
+  'Balcony', 'Borewell Water', 'Car Parking', 'CCTV', 'Electricity', 'Gated Community', 
+  'Garden', 'Gym', 'Lift', 'Municipal Water', 'Pets Allowed', 'Power Backup', 'Security', 'Terrace Access'
 ];
 
 // Zod schema for form validation
