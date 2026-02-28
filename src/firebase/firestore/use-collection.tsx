@@ -72,16 +72,23 @@ export function useCollection<T = any>(
         return null;
     }
 
-    const isRawPropertiesQuery = 
-        (memoizedTargetRefOrQuery.type === 'collection' && memoizedTargetRefOrQuery.path === 'properties');
+    // This is a robust check to determine if the query is targeting the 'properties' collection.
+    // It handles both raw CollectionReferences and more complex Query objects.
+    const path = (memoizedTargetRefOrQuery as InternalQuery)._query?.path?.canonicalString() ||
+                 (memoizedTargetRefOrQuery as CollectionReference).path;
 
-    if (isRawPropertiesQuery && !isAdmin) {
-        return query(memoizedTargetRefOrQuery as CollectionReference, where('isApproved', '==', true));
+    const targetsProperties = path === 'properties';
+
+    // If the query targets 'properties' and the user is NOT an admin, we MUST enforce
+    // the 'isApproved' filter to comply with public access security rules.
+    if (targetsProperties && !isAdmin) {
+        return query(memoizedTargetRefOrQuery, where('isApproved', '==', true));
     }
     
+    // For admins or any other collection, use the original query.
     return memoizedTargetRefOrQuery;
 
-  }, [memoizedTargetRefOrQuery, user, isAdmin]);
+  }, [memoizedTargetRefOrQuery, isAdmin]);
 
 
   useEffect(() => {
