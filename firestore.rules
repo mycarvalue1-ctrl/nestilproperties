@@ -43,15 +43,19 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-        // Admin: Unconstrained read/write access.
-        allow read, write: if isAdmin();
-        
-        // Non-Admin: Read access. For LIST, query must be constrained.
-        allow read: if !isAdmin() && (resource.data.isApproved == true || isOwner(resource.data.ownerId));
-        
-        // Non-Admin: Write access.
-        allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
-        allow update: if !isAdmin() && isOwner(resource.data.ownerId);
+      // Combined read rule for all roles.
+      allow read: if
+        // Admins can read any document.
+        isAdmin() ||
+        // The owner of a property can always read their own document.
+        isOwner(resource.data.ownerId) ||
+        // Any user can read a property if it has been approved.
+        resource.data.isApproved == true;
+
+      // Write rules remain separate and more specific.
+      allow write: if isAdmin();
+      allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
+      allow update: if !isAdmin() && isOwner(resource.data.ownerId);
     }
 
     // =================================
@@ -60,7 +64,8 @@ service cloud.firestore {
      match /site_visits/{visitId} {
       // Allow read/update if admin, owner, or visitor.
       allow read, update: if isAdmin() || isOwner(resource.data.ownerId) || isOwner(resource.data.visitorId);
-      
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.ownerId == request.auth.uid);
+
       // Permissions for non-admins.
       allow create: if isOwner(request.resource.data.visitorId);
       allow delete: if false; // Deletion is disabled for record-keeping.
