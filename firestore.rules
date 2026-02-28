@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // The user is an admin if they are signed in AND their UID matches the specific admin UID.
+      // Safely check for admin UID, ensuring user is signed in first.
       return isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
 
@@ -24,13 +24,9 @@ service cloud.firestore {
     // User Profile Rules
     // =================================
     match /users/{userId} {
-      // An admin can read/update any profile. A user can only read/update their own.
       allow read, update: if isOwner(userId) || isAdmin();
-      // A user can create their own user document.
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      // Only an admin can delete a user document.
       allow delete: if isAdmin();
-      // Only an admin can list all users.
       allow list: if isAdmin();
     }
 
@@ -38,7 +34,6 @@ service cloud.firestore {
     // Favorite Properties (Subcollection)
     // =================================
     match /users/{userId}/favorite_properties/{favoritePropertyId} {
-      // A user can manage their own favorites. An admin has full access.
       allow read, write: if isOwner(userId) || isAdmin();
     }
 
@@ -46,24 +41,26 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // --- WRITE Rules (Create, Update, Delete) ---
-      allow create: if isOwner(request.resource.data.ownerId);
-      allow update: if isOwner(resource.data.ownerId) || isAdmin();
-      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+      // Admin has full access. This rule is checked first.
+      allow read, write: if isAdmin();
 
-      // --- READ Rules (Get) ---
-      // GET (Single Document): Allow if admin, owner, or the property is approved.
-      allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
+      // --- Non-Admin Rules ---
+
+      // Create: Allow if user is not an admin and is the owner.
+      allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
+
+      // Update, Delete: Allow if user is not an admin and is the owner.
+      allow update, delete: if !isAdmin() && isOwner(resource.data.ownerId);
       
-      // --- LIST Rules (Query) ---
-      // Rule for public queries. MUST NOT require authentication.
-      allow list: if request.query.where.get("isApproved") == true;
-
-      // Rule for authenticated user queries. MUST require authentication.
-      allow list: if isSignedIn() && (
-        isAdmin() || // Admins can list anything
-        request.query.where.get("ownerId") == request.auth.uid // Owners can list their own
-      );
+      // Get (Single Document): Allow if not an admin AND (it's approved OR they are the owner).
+      allow get: if !isAdmin() && (resource.data.isApproved == true || isOwner(resource.data.ownerId));
+      
+      // List (Query):
+      // Rule 1: Allow public queries for approved properties. This fixes the homepage error.
+      allow list: if request.query.where.isApproved == true;
+      
+      // Rule 2: Allow authenticated users to query for their own properties.
+      allow list: if isSignedIn() && request.auth.uid == request.query.where.ownerId;
     }
 
 
