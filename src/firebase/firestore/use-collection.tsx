@@ -67,37 +67,29 @@ export function useCollection<T = any>(
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    // Immediately exit if the query object isn't ready.
     if (!memoizedTargetRefOrQuery) {
       setData(null);
       setIsLoading(false);
       setError(null);
       return;
     }
-
-    // Crucially, wait until Firebase has resolved the auth state.
-    // This prevents queries from running with a temporary `auth: null` state
-    // if the user is actually logged in or during initial load.
+    
+    // This is the critical guard. We must wait for Firebase to determine the auth state.
     if (isUserLoading) {
       setIsLoading(true);
       return;
     }
 
-    // At this point, `isUserLoading` is false. We know who the user is (or isn't).
-    const isAdmin = user?.uid === 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     let effectiveQuery = memoizedTargetRefOrQuery;
+    const path = (effectiveQuery as InternalQuery)._query?.path?.toString() ?? '';
+    const targetsProperties = path.endsWith('/properties');
 
-    // Determine if the query targets the 'properties' collection.
-    const path = (effectiveQuery as InternalQuery)._query?.path?.canonicalString() || (effectiveQuery as CollectionReference).path;
-    const targetsProperties = path === 'properties';
-
-    // If a NON-ADMIN is querying 'properties', we MUST enforce the public-access rule
-    // by adding the `isApproved` filter. This acts as a global safety net.
-    if (targetsProperties && !isAdmin) {
+    // This is the safety net. If the user is unauthenticated (user is null) and the
+    // query targets the 'properties' collection, we MUST enforce the public access rule.
+    if (targetsProperties && !user) {
       effectiveQuery = query(memoizedTargetRefOrQuery, where('isApproved', '==', true));
     }
 
-    // Now, run the snapshot listener with the correctly filtered query.
     setIsLoading(true);
     setError(null);
 
@@ -115,7 +107,7 @@ export function useCollection<T = any>(
       (err: FirestoreError) => {
         const contextualError = new FirestorePermissionError({
           operation: 'list',
-          path: path,
+          path: (effectiveQuery as InternalQuery)._query?.path?.canonicalString() || (effectiveQuery as CollectionReference).path,
         })
         setError(contextualError);
         setData(null);
@@ -125,7 +117,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, user, isUserLoading]); // Re-run when query, user, or loading state changes.
+  }, [memoizedTargetRefOrQuery, user, isUserLoading]);
   
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
