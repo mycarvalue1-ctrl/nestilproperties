@@ -47,8 +47,6 @@ service cloud.firestore {
     // =================================
     match /properties/{propertyId} {
       // ADMIN OVERRIDE: If the user is an admin, grant full read/write access immediately.
-      // This is the most important rule for the admin dashboard to work correctly.
-      // The rules engine should stop evaluating further for an admin if this is true.
       allow read, write: if isAdmin();
 
       // --- The following rules apply ONLY to NON-ADMIN users ---
@@ -69,7 +67,7 @@ service cloud.firestore {
       allow list: if !isAdmin() && request.query.where.get("isApproved") == true;
       
       // Rule 2: Allow listing if the query filters for the user's own properties.
-      allow list: if !isAdmin() && request.query.where.get("ownerId") == request.auth.uid;
+      allow list: if !isAdmin() && isSignedIn() && request.query.where.get("ownerId") == request.auth.uid;
     }
 
 

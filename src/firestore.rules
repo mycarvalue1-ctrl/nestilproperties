@@ -69,7 +69,7 @@ service cloud.firestore {
       allow list: if !isAdmin() && request.query.where.get("isApproved") == true;
       
       // Rule 2: Allow listing if the query filters for the user's own properties.
-      allow list: if !isAdmin() && request.query.where.get("ownerId") == request.auth.uid;
+      allow list: if !isAdmin() && isSignedIn() && request.query.where.get("ownerId") == request.auth.uid;
     }
 
 
