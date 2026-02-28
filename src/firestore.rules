@@ -42,24 +42,21 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // ADMIN ACCESS: Admins have full, unconditional read and write access.
-      // This rule is evaluated first. If true, access is granted and other rules are ignored.
+      // This rule gives admins full read/write access and stops further evaluation for them.
+      // This is the most important rule for the admin dashboard to function correctly.
       allow read, write: if isAdmin();
 
-      // USER ACCESS: These rules only apply if the user is NOT an admin.
-      
-      // Allow non-admins to GET a single doc if it's approved OR they own it.
-      allow get: if !isAdmin() && (isOwner(resource.data.ownerId) || resource.data.isApproved == true);
-      
-      // Allow non-admins to LIST docs if their query is for approved properties OR for their own properties.
-      // This forces client queries to be secure.
-      allow list: if !isAdmin() && (request.query.where.get("isApproved") == true || request.query.where.get("ownerId") == request.auth.uid);
-      
-      // Allow non-admins to CREATE properties for themselves.
+      // The following rules apply ONLY to non-admins.
       allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
-
-      // Allow non-admins to UPDATE their own properties.
       allow update: if !isAdmin() && isOwner(resource.data.ownerId);
+      allow get: if !isAdmin() && (resource.data.isApproved == true || isOwner(resource.data.ownerId));
+
+      // For LIST operations, non-admins MUST provide a secure filter in their query.
+      // Rule 1: Allow listing of all publicly approved properties.
+      allow list: if !isAdmin() && request.query.where.get("isApproved") == true;
+      
+      // Rule 2: Allow a user to list their OWN properties (for their dashboard).
+      allow list: if !isAdmin() && request.query.where.get("ownerId") == request.auth.uid;
     }
 
 
