@@ -41,25 +41,23 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // --- ADMIN OVERRIDE ---
-      // Admins can do anything. This is checked first and grants full access.
+      // --- ADMINS ---
+      // Admins have full read and write access to all properties.
       allow read, write: if isAdmin();
+      
+      // --- OWNERS ---
+      // An owner can read, update, or delete their own property documents.
+      // 'read' includes 'get' and 'list', so an owner can see their own properties regardless of approval status.
+      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
+      
+      // An owner can create a property for themselves.
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
 
-      // --- NON-ADMIN READS (GET AND LIST) ---
-      // A single, unambiguous rule for all read operations for non-admins.
-      allow read: if !isAdmin() && (
-        // EITHER the document is public and approved
-        resource.data.isApproved == true
-        // OR the logged-in user is the owner of the document
-        || (isSignedIn() && request.auth.uid == resource.data.ownerId)
-      );
-
-      // --- NON-ADMIN WRITES ---
-      // Allow create only for the owner.
-      allow create: if !isAdmin() && isSignedIn() && request.auth.uid == request.resource.data.ownerId;
-
-      // Allow update and delete only for the owner.
-      allow update, delete: if !isAdmin() && isSignedIn() && request.auth.uid == resource.data.ownerId;
+      // --- PUBLIC ---
+      // Any user (including unauthenticated visitors) can read a property if it is approved.
+      // This rule allows the public homepage and property search to function correctly
+      // as long as the client query includes `where('isApproved', '==', true)`.
+      allow get, list: if resource.data.isApproved == true;
     }
 
 
