@@ -87,11 +87,10 @@ export function useCollection<T = any>(
     // This block acts as a safety net to prevent unfiltered queries on the 'properties'
     // collection by unauthenticated users, which would violate security rules.
     const internalQuery = (effectiveQuery as InternalQuery);
-    const collectionId = internalQuery._query?.path?.segments?.[0];
-
-    if (collectionId === 'properties' && !user) {
-      // If a public user is querying 'properties', we MUST enforce the 'isApproved' rule.
-      effectiveQuery = query(effectiveQuery, where('isApproved', '==', true));
+    if (internalQuery?._query?.path?.segments?.[0] === 'properties' && !user) {
+        // For public users querying 'properties', we MUST enforce the security rule.
+        // We compose the existing query with the new security constraint.
+        effectiveQuery = query(effectiveQuery, where('isApproved', '==', true));
     }
     // END: GLOBAL SAFETY NET
 
