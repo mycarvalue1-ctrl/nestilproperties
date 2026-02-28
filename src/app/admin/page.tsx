@@ -215,9 +215,8 @@ export default function AdminPage() {
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
-    // This query now includes a `where` clause that will always be true,
-    // which helps the Firestore security rules engine correctly validate the query for admins.
-    return query(collection(firestore, 'properties'), where('price', '>=', 0));
+    // With the corrected rules, the admin can perform an unfiltered query.
+    return collection(firestore, 'properties');
   }, [firestore, isAdmin]);
 
   const { data: allProperties, isLoading: propertiesLoading } = useCollection<Property>(propertiesQuery);

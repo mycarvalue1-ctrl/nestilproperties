@@ -42,19 +42,23 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // WRITE Rules
+      // ADMIN OVERRIDE: Admins have full read and write access.
+      // This rule is checked first and provides a clear path for admin requests.
+      allow read, write: if isAdmin();
+      
+      // NON-ADMIN WRITE Rules:
+      // Allow non-admins to create properties and update their own.
       allow create: if isOwner(request.resource.data.ownerId);
-      allow update: if isAdmin() || isOwner(resource.data.ownerId);
-      allow delete: if isAdmin();
+      allow update: if isOwner(resource.data.ownerId);
 
-      // READ Rules
-      // Admins can list all properties without constraint.
-      allow list: if isAdmin();
-      // Non-admins must filter by approved properties.
-      allow list: if !isAdmin() && request.query.where.get("isApproved") == true;
-
-      // Anyone can get a document if it's approved, or if they are the owner, or an admin.
-      allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
+      // NON-ADMIN READ Rules:
+      // Allow non-admins to get a single doc if it's approved or they own it.
+      allow get: if isOwner(resource.data.ownerId) || resource.data.isApproved == true;
+      
+      // Allow non-admins to list docs if they are querying for approved properties
+      // OR for their own properties.
+      allow list: if request.query.where.get("isApproved") == true ||
+                     request.query.where.get("ownerId") == request.auth.uid;
     }
 
 
