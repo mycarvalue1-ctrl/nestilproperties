@@ -42,18 +42,19 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // Admin Rules: Grant blanket read/write access to admins.
-      allow read, write: if isAdmin();
+      // WRITE Rules: Create, Update, Delete
+      allow create: if isOwner(request.resource.data.ownerId);
+      allow update: if isAdmin() || isOwner(resource.data.ownerId);
+      allow delete: if isAdmin();
 
-      // User Rules for Reading:
-      // Allow reading a document if it's approved OR if the user is the owner.
-      // This single rule covers both public listing queries and owners viewing their own properties.
-      allow read: if !isAdmin() && (isOwner(resource.data.ownerId) || resource.data.isApproved == true);
-
-      // User Rules for Writing:
-      // Owners can create/update their own properties.
-      allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
-      allow update: if !isAdmin() && isOwner(resource.data.ownerId);
+      // READ Rules: Get (single doc) and List (queries)
+      
+      // GET: A single document can be read if the user is an admin, the owner, or if the property is approved.
+      allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
+      
+      // LIST: A query is allowed to proceed if the user is signed in.
+      // Firestore's backend then securely applies the 'get' rule to every document the query tries to return.
+      allow list: if isSignedIn();
     }
 
 
