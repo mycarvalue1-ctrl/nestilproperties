@@ -46,30 +46,19 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // ADMIN OVERRIDE: If the user is an admin, grant full read/write access immediately.
-      // This is the most important rule for the admin dashboard to work correctly.
-      // The rules engine should stop evaluating further for an admin if this is true.
-      allow read, write: if isAdmin();
+      // --- WRITE Rules (Create, Update, Delete) ---
+      allow create: if isOwner(request.resource.data.ownerId);
+      allow update: if isOwner(resource.data.ownerId) || isAdmin();
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
 
-      // --- The following rules apply ONLY to NON-ADMIN users ---
-
-      // CREATE: A non-admin user can create a property if they are the owner.
-      allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
+      // --- READ Rules (Get, List) ---
+      // GET (Single Document): Allow if admin, owner, or the property is approved.
+      allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
       
-      // UPDATE: A non-admin user can update a property they own.
-      allow update: if !isAdmin() && isOwner(resource.data.ownerId);
-
-      // GET (Single Document): A non-admin can get a single document if it's approved, or if they own it.
-      allow get: if !isAdmin() && (resource.data.isApproved == true || isOwner(resource.data.ownerId));
-
-      // LIST (Query): A non-admin user must provide a secure filter in their query.
-      // These two 'allow list' rules act as an OR condition.
-      
-      // Rule 1: Allow listing if the query filters for publicly approved properties.
-      allow list: if !isAdmin() && request.query.where.get("isApproved") == true;
-      
-      // Rule 2: Allow listing if the query filters for the user's own properties.
-      allow list: if !isAdmin() && isSignedIn() && request.query.where.get("ownerId") == request.auth.uid;
+      // LIST (Query): Use separate, non-conflicting rules for each scenario.
+      allow list: if isAdmin();
+      allow list: if request.query.where.get("isApproved") == true;
+      allow list: if isSignedIn() && request.query.where.get("ownerId") == request.auth.uid;
     }
 
 
