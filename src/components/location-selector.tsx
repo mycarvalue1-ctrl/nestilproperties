@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,8 +32,7 @@ export function LocationSelector({ className }: { className?: string }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState(1);
 
-  // This will hold the statically generated location data
-  const [locationData, setLocationData] = useState<State[]>(staticLocationData);
+  const [locationData] = useState<State[]>(staticLocationData);
 
   const [selectedState, setSelectedState] = useState<State | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
@@ -51,7 +50,6 @@ export function LocationSelector({ className }: { className?: string }) {
       if (locationJson) {
         setSavedLocation(JSON.parse(locationJson));
       } else {
-        // Set a default location if none is saved
         const defaultLocation = {
             state: 'Andhra Pradesh',
             district: 'NTR district',
@@ -101,7 +99,7 @@ export function LocationSelector({ className }: { className?: string }) {
         locality: selectedLocality.name,
       };
       localStorage.setItem('userLocation', JSON.stringify(newLocation));
-      window.dispatchEvent(new CustomEvent('location-changed')); // Dispatch custom event
+      window.dispatchEvent(new CustomEvent('location-changed'));
       setSavedLocation(newLocation);
       setIsModalOpen(false);
       resetSelection();
@@ -154,7 +152,6 @@ export function LocationSelector({ className }: { className?: string }) {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            {/* Step 1: State */}
             <div className="grid grid-cols-4 items-center gap-4">
               <label className="text-right">State</label>
               <Select
@@ -174,7 +171,6 @@ export function LocationSelector({ className }: { className?: string }) {
               </Select>
             </div>
 
-            {/* Step 2: District */}
             {step >= 2 && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <label className="text-right">District</label>
@@ -197,7 +193,6 @@ export function LocationSelector({ className }: { className?: string }) {
               </div>
             )}
 
-            {/* Step 3: Locality */}
             {step >= 3 && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <label className="text-right">Locality</label>
