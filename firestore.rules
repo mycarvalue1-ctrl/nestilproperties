@@ -11,8 +11,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Direct UID check for the administrator account.
-      return request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
+      // Safely check for admin UID, ensuring user is signed in first.
+      return isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
     }
 
     function isOwner(ownerId) {
@@ -24,74 +24,61 @@ service cloud.firestore {
     // User Profile Rules
     // =================================
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      // Admin has full CRUD access. Users can read/update their own profile.
+      allow read, update: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
+      allow list: if isAdmin();
     }
 
     // =================================
     // Favorite Properties (Subcollection)
     // =================================
     match /users/{userId}/favorite_properties/{favoritePropertyId} {
-      // Only the user themselves can manage their own favorites.
-      allow read, write: if isOwner(userId);
+      // User can manage their own favorites, admin has full access to all favorites.
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
     // =================================
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // LIST: A query on the properties collection is allowed if, FOR EVERY DOCUMENT IN THE RESULT:
-      // 1. The user is an admin.
-      // 2. OR the property is approved for public viewing.
-      // 3. OR the user is the owner of the property.
-      // This forces unauthenticated queries to include `where('isApproved', '==', true)`.
-      allow list: if isAdmin() || (resource.data.isApproved == true) || isOwner(resource.data.ownerId);
+      // Grant blanket read/write access to administrators.
+      // This rule is processed independently and allows unconstrained queries.
+      allow read, write: if isAdmin();
 
-      // GET: Allows reading a single document if it's approved or the user has rights.
-      // Simplified to allow all reads, as client queries are already filtered for isApproved == true.
-      allow get: if true;
-
-      // CREATE: Any signed-in user can create a property for themselves.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-
-      // UPDATE / DELETE: Only the owner or an admin can modify/delete.
-      allow update, delete: if isAdmin() || isOwner(resource.data.ownerId);
+      // Grant permissions for non-admin users. These are OR'd with the admin rule.
+      allow get: if resource.data.isApproved == true || isOwner(resource.data.ownerId);
+      allow list: if resource.data.isApproved == true || isOwner(resource.data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
+      allow update: if isOwner(resource.data.ownerId);
     }
 
     // =================================
     // Site Visit Rules
     // =================================
-    match /site_visits/{visitId} {
-      // Visitor can create their own request.
+     match /site_visits/{visitId} {
+      // Grant blanket read/update access to administrators.
+      allow read, update: if isAdmin();
+      
+      // Permissions for non-admins.
       allow create: if isOwner(request.resource.data.visitorId);
-
-      // A read is allowed by the visitor, the owner, or an admin.
-      // A query must be constrained to what the user can see (by visitorId or ownerId),
-      // unless the user is an admin.
-      allow read: if isOwner(resource.data.visitorId) || isOwner(resource.data.ownerId) || isAdmin();
-      
-      // Owner can update the status of the request (confirm/reject). Admin can too.
-      allow update: if isOwner(resource.data.ownerId) || isAdmin();
-      
-      // For record-keeping, prevent deletion for now.
-      allow delete: if false;
+      allow read: if isOwner(resource.data.visitorId) || isOwner(resource.data.ownerId);
+      allow update: if isOwner(resource.data.ownerId);
+      allow delete: if false; // Deletion is disabled for record-keeping.
     }
-
 
     // =================================
     // Static Data Collections
     // =================================
     match /amenities/{amenityId} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin(); // create, update, delete
     }
 
     match /nearby_place_types/{nearbyPlaceTypeId} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin(); // create, update, delete
     }
   }
 }
