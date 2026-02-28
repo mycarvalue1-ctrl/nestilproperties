@@ -83,18 +83,17 @@ export function useCollection<T = any>(
     
     let effectiveQuery = memoizedTargetRefOrQuery;
     
-    // START: SAFETY NET LOGIC
-    // This safety net ensures that any query on the top-level 'properties' collection
-    // by a non-authenticated user is always filtered for public documents.
-    const internalQuery = (effectiveQuery as any)?._query;
-    const collectionId = internalQuery?.path?.segments?.[0];
-
+    // START: GLOBAL SAFETY NET
+    // This block acts as a safety net to prevent unfiltered queries on the 'properties'
+    // collection by unauthenticated users, which would violate security rules.
+    const internalQuery = (effectiveQuery as InternalQuery);
+    const collectionId = internalQuery._query?.path?.segments?.[0];
 
     if (collectionId === 'properties' && !user) {
-      // Add the 'isApproved' filter to enforce security rules for public users.
+      // If a public user is querying 'properties', we MUST enforce the 'isApproved' rule.
       effectiveQuery = query(effectiveQuery, where('isApproved', '==', true));
     }
-    // END: SAFETY NET LOGIC
+    // END: GLOBAL SAFETY NET
 
     setIsLoading(true);
     setError(null);
