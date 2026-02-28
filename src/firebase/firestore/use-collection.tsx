@@ -84,14 +84,14 @@ export function useCollection<T = any>(
     let effectiveQuery = memoizedTargetRefOrQuery;
     
     // START: SAFETY NET LOGIC
-    // This logic ensures that any query to the 'properties' collection by a non-authenticated user
-    // is automatically filtered to only include 'approved' properties.
+    // We need to inspect the query to see if it's for the 'properties' collection.
     const q = effectiveQuery as any;
-    const path = q.path || q._query?.path?.toString();
+    const path = q.path || (q._query && q._query.path ? q._query.path.toString() : null);
     
-    // Check if it's a query on the 'properties' collection and if the user is not logged in.
+    // If the user is NOT authenticated and the query is for the 'properties' collection...
     if (path === 'properties' && !user) {
-        // This adds the mandatory 'where' clause to the query to comply with security rules.
+        // ...we MUST enforce the security rule by adding the 'where' clause.
+        // This acts as a safety net for any component that forgets to add it.
         effectiveQuery = query(effectiveQuery, where('isApproved', '==', true));
     }
     // END: SAFETY NET LOGIC
