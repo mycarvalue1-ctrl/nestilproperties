@@ -36,6 +36,7 @@ export interface InternalQuery extends Query<DocumentData> {
     path: {
       canonicalString(): string;
       toString(): string;
+      segments: string[];
     }
   }
 }
@@ -85,10 +86,11 @@ export function useCollection<T = any>(
     // START: SAFETY NET LOGIC
     // This safety net ensures that any query on the top-level 'properties' collection
     // by a non-authenticated user is always filtered for public documents.
-    const internalQuery = (effectiveQuery as InternalQuery)._query;
-    const path = internalQuery?.path?.toString();
+    const internalQuery = (effectiveQuery as any)?._query;
+    const collectionId = internalQuery?.path?.segments?.[0];
 
-    if (path === 'properties' && !user) {
+
+    if (collectionId === 'properties' && !user) {
       // Add the 'isApproved' filter to enforce security rules for public users.
       effectiveQuery = query(effectiveQuery, where('isApproved', '==', true));
     }
@@ -109,9 +111,10 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
+        const path = (effectiveQuery as InternalQuery)._query?.path?.canonicalString() || (effectiveQuery as CollectionReference).path;
         const contextualError = new FirestorePermissionError({
           operation: 'list',
-          path: (effectiveQuery as InternalQuery)._query?.path?.canonicalString() || (effectiveQuery as CollectionReference).path,
+          path: path,
         })
         setError(contextualError);
         setData(null);
