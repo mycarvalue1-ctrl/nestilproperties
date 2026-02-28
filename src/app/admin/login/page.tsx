@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      email: "admin@nestil.in",
       password: "",
     },
   });
@@ -74,7 +74,7 @@ export default function AdminLoginPage() {
             <Shield className="mx-auto h-12 w-12 text-primary" />
           <CardTitle className="text-2xl mt-4">Admin Login</CardTitle>
           <CardDescription>
-            Enter your administrator credentials below.
+            Use the administrator credentials to manage the application. The default password is 'password'.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -87,7 +87,7 @@ export default function AdminLoginPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="admin@example.com" {...field} />
+                      <Input type="email" placeholder="admin@nestil.in" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
