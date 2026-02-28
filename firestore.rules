@@ -42,23 +42,24 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // ADMIN OVERRIDE: Admins have full read and write access.
-      // This rule is checked first and provides a clear path for admin requests.
+      // ADMIN ACCESS: Admins have full, unconditional read and write access.
+      // This rule is evaluated first. If true, access is granted and other rules are ignored.
       allow read, write: if isAdmin();
-      
-      // NON-ADMIN WRITE Rules:
-      // Allow non-admins to create properties and update their own.
-      allow create: if isOwner(request.resource.data.ownerId);
-      allow update: if isOwner(resource.data.ownerId);
 
-      // NON-ADMIN READ Rules:
-      // Allow non-admins to get a single doc if it's approved or they own it.
-      allow get: if isOwner(resource.data.ownerId) || resource.data.isApproved == true;
+      // USER ACCESS: These rules only apply if the user is NOT an admin.
       
-      // Allow non-admins to list docs if they are querying for approved properties
-      // OR for their own properties.
-      allow list: if request.query.where.get("isApproved") == true ||
-                     request.query.where.get("ownerId") == request.auth.uid;
+      // Allow non-admins to GET a single doc if it's approved OR they own it.
+      allow get: if !isAdmin() && (isOwner(resource.data.ownerId) || resource.data.isApproved == true);
+      
+      // Allow non-admins to LIST docs if their query is for approved properties OR for their own properties.
+      // This forces client queries to be secure.
+      allow list: if !isAdmin() && (request.query.where.get("isApproved") == true || request.query.where.get("ownerId") == request.auth.uid);
+      
+      // Allow non-admins to CREATE properties for themselves.
+      allow create: if !isAdmin() && isOwner(request.resource.data.ownerId);
+
+      // Allow non-admins to UPDATE their own properties.
+      allow update: if !isAdmin() && isOwner(resource.data.ownerId);
     }
 
 
