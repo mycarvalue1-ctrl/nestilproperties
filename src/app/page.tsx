@@ -14,7 +14,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -22,21 +22,26 @@ import { useFavorites } from '@/hooks/use-favorites';
 
 export default function Home() {
   const firestore = useFirestore();
-  const { favoriteIds, toggleFavorite } = useFavorites();
+  const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
+  const { isUserLoading } = useUser();
 
   const recentPropertiesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    // This is the definitive fix: wait for auth to load, then create the query.
+    // The query is explicitly for public, approved properties.
+    if (isUserLoading || !firestore) return null;
 
-    // This is the definitive fix: always filter for approved properties on the public homepage.
     return query(
       collection(firestore, 'properties'),
       where('isApproved', '==', true),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
-  }, [firestore]);
+  }, [firestore, isUserLoading]);
 
-  const { data: recentProperties, isLoading } = useCollection<Property>(recentPropertiesQuery);
+  const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
+  
+  // The page is loading if auth is still checking OR if the properties are fetching.
+  const isLoading = isUserLoading || isLoadingProperties;
 
 
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
