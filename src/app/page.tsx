@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
 
@@ -33,52 +33,38 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('relevance');
   const { favoriteIds, toggleFavorite } = useFavorites();
 
-  // Fetch all approved properties
-  const approvedPropertiesQuery = useMemoFirebase(() => {
+  const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(
-      collection(firestore, 'properties'),
-      where('isApproved', '==', true)
-    );
-  }, [firestore]);
 
-  const { data: approvedProperties, isLoading: propertiesLoading } =
-    useCollection<Property>(approvedPropertiesQuery);
-
-  // Perform sorting and slicing on the client-side
-  const { recentProperties, isLoading } = useMemo(() => {
-    if (propertiesLoading) {
-      return { recentProperties: [], isLoading: true };
-    }
-    if (!approvedProperties) {
-      return { recentProperties: [], isLoading: false };
-    }
-
-    let sorted = [...approvedProperties];
+    const q = collection(firestore, 'properties');
+    
+    const constraints = [
+        where('isApproved', '==', true)
+    ];
 
     switch (sortBy) {
       case 'price-asc':
-        sorted.sort((a, b) => (a.price || 0) - (b.price || 0));
+        constraints.push(orderBy('price', 'asc'));
         break;
       case 'price-desc':
-        sorted.sort((a, b) => (b.price || 0) - (a.price || 0));
+        constraints.push(orderBy('price', 'desc'));
         break;
       case 'recent':
-        sorted.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+        constraints.push(orderBy('dateAdded', 'desc'));
         break;
       case 'relevance':
       default:
-        sorted.sort((a, b) => {
-          if (a.featured && !b.featured) return -1;
-          if (!a.featured && b.featured) return 1;
-          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
-        });
+        constraints.push(orderBy('featured', 'desc'));
+        constraints.push(orderBy('dateAdded', 'desc'));
         break;
     }
+
+    constraints.push(limit(6));
     
-    // Get the first 6
-    return { recentProperties: sorted.slice(0, 6), isLoading: false };
-  }, [approvedProperties, propertiesLoading, sortBy]);
+    return query(q, ...constraints);
+  }, [firestore, sortBy]);
+
+  const { data: recentProperties, isLoading } = useCollection<Property>(recentPropertiesQuery);
 
 
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);

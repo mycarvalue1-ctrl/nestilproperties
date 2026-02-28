@@ -20,43 +20,84 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
 
 
 function PropertyList() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const status = searchParams.get('status');
   const types = searchParams.getAll('type');
+  const sortBy = searchParams.get('sortBy') || 'recent';
+
   const firestore = useFirestore();
   const { favoriteIds, toggleFavorite } = useFavorites();
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'properties'), where('isApproved', '==', true));
-  }, [firestore]);
 
-  const { data: allApprovedProperties, isLoading } = useCollection<Property>(propertiesQuery);
+    const q = collection(firestore, 'properties');
+    const constraints: any[] = [where('isApproved', '==', true)];
 
+    if (status) {
+      constraints.push(where('status', '==', status));
+    }
+    
+    switch (sortBy) {
+      case 'price-asc':
+        constraints.push(orderBy('price', 'asc'));
+        break;
+      case 'price-desc':
+        constraints.push(orderBy('price', 'desc'));
+        break;
+      case 'recent':
+      default:
+        constraints.push(orderBy('dateAdded', 'desc'));
+        break;
+    }
+
+    return query(q, ...constraints);
+  }, [firestore, status, sortBy]);
+
+  const { data: serverFilteredProperties, isLoading } = useCollection<Property>(propertiesQuery);
+  
   const filteredProperties = useMemo(() => {
-    if (!allApprovedProperties) return [];
+    if (!serverFilteredProperties) return [];
 
     const lowerCaseTypes = types.map(t => t.toLowerCase());
 
-    return allApprovedProperties.filter(p => {
-      let match = true;
-      if (status && p.status !== status) {
-        match = false;
-      }
-      
-      if (lowerCaseTypes.length > 0 && (!p.type || !lowerCaseTypes.includes(p.type.toLowerCase()))) {
-        match = false;
-      }
+    if (lowerCaseTypes.length === 0) {
+      return serverFilteredProperties;
+    }
 
-      return match;
+    // This client-side filter is still needed because the 'type' field in the database
+    // is more specific (e.g., "2 BHK Flat") than the filter categories (e.g., "Apartment").
+    return serverFilteredProperties.filter(p => {
+      if (!p.type) return false;
+      const propTypeLower = p.type.toLowerCase();
+
+      return lowerCaseTypes.some(filterType => {
+        if (filterType === 'apartment') {
+          return propTypeLower.includes('flat') || propTypeLower.includes('apartment');
+        }
+        if (filterType === 'house') {
+            return propTypeLower.includes('house') || propTypeLower.includes('villa');
+        }
+        return propTypeLower.includes(filterType);
+      });
     });
-  }, [allApprovedProperties, status, types]);
+  }, [serverFilteredProperties, types]);
+
+  const handleSortChange = useCallback((value: string) => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      current.set('sortBy', value);
+      const search = current.toString();
+      router.push(`${pathname}?${search}`, {scroll: false});
+  }, [searchParams, router, pathname]);
 
   if (isLoading) {
     return (
@@ -76,7 +117,7 @@ function PropertyList() {
     <div className="flex-1">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">{`Showing ${filteredProperties.length} properties`}</h2>
-        <Select>
+        <Select value={sortBy} onValueChange={handleSortChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
