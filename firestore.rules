@@ -52,19 +52,19 @@ service cloud.firestore {
       // Rule 3: A signed-in, non-admin owner can update or delete their own property.
       allow update, delete: if !isAdmin() && isSignedIn() && isOwner(resource.data.ownerId);
 
-      // --- READ RULES FOR NON-ADMINS ---
-
-      // GET (Single Document) Rules:
+      // --- GET RULES FOR NON-ADMINS ---
       // Rule 4: ANYONE (public, user, etc.) can GET a single document if it is approved.
-      allow get: if resource.data.isApproved == true;
+      allow get: if !isAdmin() && resource.data.isApproved == true;
       // Rule 5: A signed-in owner can GET their own document, regardless of approval status.
-      allow get: if isSignedIn() && isOwner(resource.data.ownerId);
+      allow get: if !isAdmin() && isSignedIn() && isOwner(resource.data.ownerId);
       
-      // LIST (Query) Rules:
-      // Rule 6: PUBLIC list. ANYONE can perform a list query IF it filters for approved properties.
-      allow list: if request.query.where.isApproved == true;
-      // Rule 7: OWNER list. A signed-in user can list their own properties.
-      allow list: if isSignedIn() && request.query.where.ownerId == request.auth.uid;
+      // --- COMBINED LIST RULE FOR NON-ADMINS ---
+      allow list: if !isAdmin() && (
+        // Public can list approved properties
+        ('isApproved' in request.query.where && request.query.where.isApproved == true)
+        // OR a signed-in user can list their own properties
+        || (isSignedIn() && 'ownerId' in request.query.where && request.query.where.ownerId == request.auth.uid)
+      );
     }
 
 
