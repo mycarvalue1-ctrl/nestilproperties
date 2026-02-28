@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Query,
   onSnapshot,
@@ -81,14 +81,26 @@ export function useCollection<T = any>(
     }
 
     let effectiveQuery = memoizedTargetRefOrQuery;
-    const path = (effectiveQuery as InternalQuery)._query?.path?.toString() ?? '';
-    const targetsProperties = path.endsWith('/properties');
-
-    // This is the safety net. If the user is unauthenticated (user is null) and the
-    // query targets the 'properties' collection, we MUST enforce the public access rule.
-    if (targetsProperties && !user) {
-      effectiveQuery = query(memoizedTargetRefOrQuery, where('isApproved', '==', true));
+    
+    // START: SAFETY NET LOGIC
+    // This logic ensures that any query to the 'properties' collection by a non-authenticated user
+    // is automatically filtered to only include 'approved' properties.
+    let path = '';
+    const q = effectiveQuery as any;
+    if (q.path) { // CollectionReference has a public .path property
+        path = q.path;
+    } else if (q._query && q._query.path) { // Query has a private ._query.path property
+        path = q._query.path.toString();
     }
+    const targetsProperties = path === 'properties';
+    
+    // For unauthenticated users querying the main 'properties' collection...
+    if (targetsProperties && !user) {
+        // This adds the mandatory 'where' clause to the query to comply with security rules.
+        effectiveQuery = query(memoizedTargetRefOrQuery, where('isApproved', '==', true));
+    }
+    // END: SAFETY NET LOGIC
+
 
     setIsLoading(true);
     setError(null);
@@ -120,7 +132,7 @@ export function useCollection<T = any>(
   }, [memoizedTargetRefOrQuery, user, isUserLoading]);
   
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+    throw new Error('useCollection query was not properly memoized using useMemoFirebase. This can lead to infinite loops.');
   }
 
   return { data, isLoading, error };
