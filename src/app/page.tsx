@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -14,7 +15,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -23,12 +24,12 @@ import { useFavorites } from '@/hooks/use-favorites';
 export default function Home() {
   const firestore = useFirestore();
   const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
-  const { isUserLoading } = useUser();
 
+  // This query for public properties does not need to wait for authentication.
+  // By creating it immediately with the 'isApproved' filter, we avoid the race condition
+  // that was causing the permissions error.
   const recentPropertiesQuery = useMemoFirebase(() => {
-    // This is the definitive fix: wait for auth to load, then create the query.
-    // The query is explicitly for public, approved properties.
-    if (isUserLoading || !firestore) return null;
+    if (!firestore) return null;
 
     return query(
       collection(firestore, 'properties'),
@@ -36,12 +37,13 @@ export default function Home() {
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
-  }, [firestore, isUserLoading]);
+  }, [firestore]);
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
   
-  // The page is loading if auth is still checking OR if the properties are fetching.
-  const isLoading = isUserLoading || isLoadingProperties;
+  // The page shows skeletons if properties are loading. The favorite status (heart icon)
+  // will update once authentication is resolved, which is handled by the useFavorites hook.
+  const isLoading = isLoadingProperties || isLoadingFavorites;
 
 
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
