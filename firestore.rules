@@ -47,7 +47,7 @@ service cloud.firestore {
       
       // --- OWNERS ---
       // An owner can create, update, or delete their own property documents.
-      allow create, update, delete: if isSignedIn() && request.auth.uid == request.resource.data.ownerId || (isSignedIn() && request.auth.uid == resource.data.ownerId);
+      allow create, update, delete: if isSignedIn() && (request.auth.uid == resource.data.ownerId || request.auth.uid == request.resource.data.ownerId);
       
       // An owner can also read their own properties.
       allow get: if isSignedIn() && request.auth.uid == resource.data.ownerId;
