@@ -7,7 +7,6 @@ service cloud.firestore {
       return request.auth != null;
     }
     function isAdmin() {
-      // In a real app, this should check a custom claim or a document, not a hardcoded email.
       return isSignedIn() && request.auth.token.email == 'helpnestil@gmail.com';
     }
     function isOwner(ownerId) {
@@ -27,11 +26,10 @@ service cloud.firestore {
     }
     
     match /properties/{propertyId} {
-      // Public can read any single property or list them all.
-      // Client is responsible for filtering `isApproved == true` for public views.
-      allow get, list: if true;
+      // ANYONE, authenticated or not, can read properties.
+      allow read: if true;
 
-      // Signed-in users can create properties for themselves.
+      // Only signed-in users can create properties for themselves.
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       
       // Owner or Admin can update/delete.
@@ -44,7 +42,6 @@ service cloud.firestore {
       allow list: if false; // No listing of all private details.
 
       // Owner or Admin can write.
-      // This rule requires a get() which has billing implications.
       allow write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId) || isAdmin());
     }
 
