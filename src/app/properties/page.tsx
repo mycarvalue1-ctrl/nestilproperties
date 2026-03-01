@@ -19,19 +19,16 @@ import { Filter, Search, User, LogIn } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, Query } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
-import { useFavorites } from '@/hooks/use-favorites';
 import Link from 'next/link';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 function PropertyList() {
   const searchParams = useSearchParams();
-  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
   
   const [sortOption, setSortOption] = useState('newest');
 
@@ -123,7 +120,7 @@ function PropertyList() {
 
   }, [serverFilteredProperties, searchParams]);
 
-  const isLoading = isLoadingFavorites || isLoadingProperties || isUserLoading;
+  const isLoading = isLoadingProperties;
 
   if (isLoading) {
     return (
@@ -160,8 +157,6 @@ function PropertyList() {
             <PropertyCard 
               key={prop.id} 
               property={prop}
-              isFavorited={user ? favoriteIds.has(prop.id) : false}
-              onToggleFavorite={user ? () => toggleFavorite(prop.id, favoriteIds.has(prop.id)) : undefined}
             />
           ))}
         </div>

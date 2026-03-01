@@ -9,21 +9,14 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins, Calendar as CalendarIcon, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useMemo } from 'react';
-import { useDoc, useFirestore, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import type { Property, PropertyOwner, SiteVisit } from '@/lib/types';
-import { addDoc, collection, doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import type { Property, PropertyOwner } from '@/lib/types';
+import { doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { format, setHours, setMinutes } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 
@@ -37,17 +30,6 @@ const WhatsappIcon = () => (
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
     </svg>
   );
-
-const visitSchema = z.object({
-  visitDate: z.date({ required_error: "Please select a date for the visit." }),
-  visitTime: z.string({ required_error: "Please select a time slot." }),
-  message: z.string().max(500, "Message cannot exceed 500 characters.").optional(),
-});
-
-const timeSlots = Array.from({ length: 10 }, (_, i) => {
-    const hour = i + 9; // 9 AM to 6 PM (18:00)
-    return `${hour}:00`;
-});
 
 
 function PropertyDetailSkeleton() {
@@ -78,15 +60,8 @@ function PropertyDetailSkeleton() {
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
-  const [isContactVisible, setIsContactVisible] = useState(false);
-  const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
   const [privateDetails, setPrivateDetails] = useState<PropertyOwner | null>(null);
-  const [isLoadingPrivate, setIsLoadingPrivate] = useState(false);
-
-  const { toast } = useToast();
-  const router = useRouter();
   
-  const { user } = useUser();
   const firestore = useFirestore();
 
   const propertyRef = useMemoFirebase(() => {
@@ -96,6 +71,20 @@ export default function PropertyDetailPage() {
 
   const { data: property, isLoading: isPropertyLoading } = useDoc<Property>(propertyRef);
   
+  useEffect(() => {
+    async function fetchPrivateDetails() {
+        if (!firestore || !params.id) return;
+        const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
+        const docSnap = await getDoc(privateDocRef);
+        if (docSnap.exists()) {
+            setPrivateDetails(docSnap.data() as PropertyOwner);
+        }
+    }
+    if (property) {
+        fetchPrivateDetails();
+    }
+  }, [property, firestore, params.id]);
+
   const mapUrl = useMemo(() => {
     if (!property) return '';
     if (property.googleMapsLink) {
@@ -104,176 +93,6 @@ export default function PropertyDetailPage() {
     const mapQuery = encodeURIComponent(`${property.address}, ${property.city}, ${property.pincode}`);
     return `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
   }, [property]);
-
-  const visitForm = useForm<z.infer<typeof visitSchema>>({
-    resolver: zodResolver(visitSchema),
-    defaultValues: {
-      visitDate: new Date(),
-      visitTime: "",
-      message: "",
-    },
-  });
-
-  const handleShowContact = async () => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to view contact details.",
-      });
-      router.push('/user-login');
-      return;
-    }
-
-    if (!firestore || !property?.ownerId || !params.id) return;
-    
-    // Users can view their own listings for free
-    if (user.uid === property.ownerId) {
-        setIsLoadingPrivate(true);
-        const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
-        const docSnap = await getDoc(privateDocRef);
-        if (docSnap.exists()) setPrivateDetails(docSnap.data() as PropertyOwner);
-        setIsLoadingPrivate(false);
-        setIsContactVisible(true);
-        toast({
-            title: "Contact Revealed",
-            description: "You are viewing your own property listing.",
-        });
-        return;
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    try {
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        let hasAccess = false;
-
-        // Check for active subscription first
-        if (userData.subscriptionEndDate) {
-            const subEndDate = new Date(userData.subscriptionEndDate);
-            if (subEndDate > new Date()) {
-                hasAccess = true;
-                toast({
-                    title: "Contact Revealed",
-                    description: "You have an active unlimited plan.",
-                });
-            }
-        }
-
-        // If no subscription, check for credits
-        if (!hasAccess && userData.credits && userData.credits > 0) {
-          const creditData = { credits: increment(-1) };
-          updateDoc(userDocRef, creditData)
-            .then(() => {
-                hasAccess = true;
-                toast({
-                  title: "Credit Spent!",
-                  description: `You have ${userData.credits - 1} credits remaining.`,
-                });
-                // This part runs after the credit is decremented successfully
-                revealContactDetails();
-            })
-            .catch(error => {
-                console.error("Error decrementing credits:", error);
-                errorEmitter.emit('permission-error', new FirestorePermissionError({
-                    path: userDocRef.path,
-                    operation: 'update',
-                    requestResourceData: creditData,
-                }));
-            });
-        } else if (hasAccess) {
-            // This part runs if they had a subscription
-            revealContactDetails();
-        } else {
-          // No credits or subscription
-          toast({
-            variant: "destructive",
-            title: "No Credits or Active Subscription",
-            description: "You need to buy a plan to see contact details.",
-          });
-          router.push('/buy-credits');
-        }
-      } else {
-        toast({ variant: "destructive", title: "Profile Error", description: "Your user profile could not be found." });
-      }
-    } catch (error) {
-      console.error("Error checking credits/subscription: ", error);
-      toast({ variant: "destructive", title: "An Error Occurred", description: "Could not verify your plan." });
-    }
-  };
-
-  const revealContactDetails = async () => {
-    if (!firestore || !params.id) return;
-    setIsLoadingPrivate(true);
-    const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
-    try {
-        const docSnap = await getDoc(privateDocRef);
-        if(docSnap.exists()) {
-            setPrivateDetails(docSnap.data() as PropertyOwner);
-            setIsContactVisible(true);
-        } else {
-            toast({ variant: "destructive", title: "Error", description: "Contact details for this property are missing." });
-        }
-    } catch (error) {
-        console.error("Error fetching private details:", error);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: privateDocRef.path,
-            operation: 'get',
-        }));
-    } finally {
-        setIsLoadingPrivate(false);
-    }
-  };
-
-
-  function onScheduleVisit(values: z.infer<typeof visitSchema>) {
-    if (!user || !firestore || !property) {
-        toast({
-            variant: "destructive",
-            title: "Login Required",
-            description: "You must be logged in to schedule a visit.",
-        });
-        router.push('/user-login');
-        return;
-    }
-
-    const [hour] = values.visitTime.split(':').map(Number);
-    const scheduledDateTime = setMinutes(setHours(values.visitDate, hour), 0);
-
-    const visitRequest: Omit<SiteVisit, 'id' | 'createdAt'> = {
-        propertyId: property.id,
-        propertyTitle: property.title,
-        propertyImage: property.photos[0],
-        ownerId: property.ownerId,
-        visitorId: user.uid,
-        visitorName: user.displayName || 'Unknown User',
-        visitorPhone: user.phoneNumber || '',
-        scheduledAt: scheduledDateTime.toISOString(),
-        message: values.message || '',
-        status: 'pending',
-    };
-
-    const visitRequestWithTimestamp = {
-        ...visitRequest,
-        createdAt: serverTimestamp(),
-    };
-    
-    addDoc(collection(firestore, 'site_visits'), visitRequestWithTimestamp)
-      .then(() => {
-        toast({ title: "Request Sent!", description: "The property owner has been notified of your visit request." });
-        setIsVisitDialogOpen(false);
-        visitForm.reset();
-      })
-      .catch((error) => {
-        console.error("Error sending visit request:", error);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'site_visits',
-          operation: 'create',
-          requestResourceData: visitRequest, // Pass data without serverTimestamp
-        }));
-      });
-  }
 
 
   if (isPropertyLoading) {
@@ -456,265 +275,32 @@ export default function PropertyDetailPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-lg text-center">
-                    {!isContactVisible ? (
-                        <>
-                            <CardHeader>
-                                <CardTitle>Interested?</CardTitle>
-                                <p className="text-muted-foreground">Reveal owner details to contact them directly or schedule a visit.</p>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <Button onClick={handleShowContact} className="w-full" size="lg" disabled={isLoadingPrivate}>
-                                    {isLoadingPrivate ? <LoaderCircle className="mr-2 h-5 w-5 animate-spin"/> : <Eye className="mr-2 h-5 w-5" />}
-                                    Show Contact Info
+                {privateDetails && (
+                    <Card className="shadow-lg text-center">
+                        <CardHeader>
+                            <CardTitle>Contact {privateDetails?.isAgent ? "Agent" : "Owner"}</CardTitle>
+                            <p className="text-xl font-bold text-primary">{privateDetails?.name || 'Owner Name'}</p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="text-center p-4 bg-muted rounded-lg">
+                                <p className="text-sm text-muted-foreground">Phone Number</p>
+                                <p className="text-2xl font-bold tracking-widest">{privateDetails?.phone || 'N/A'}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button asChild size="lg">
+                                    <a href={`tel:${privateDetails?.phone}`}>
+                                        <Phone className="mr-2 h-5 w-5" /> Call
+                                    </a>
                                 </Button>
-                                <Dialog open={isVisitDialogOpen} onOpenChange={setIsVisitDialogOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="w-full" size="lg">
-                                            <CalendarIcon className="mr-2 h-5 w-5" /> Schedule Visit
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Schedule a Site Visit</DialogTitle>
-                                            <DialogDescription>
-                                                Request an appointment to see this property.
-                                                {property.visitAvailability && (
-                                                    <p className="mt-2 text-sm text-foreground bg-secondary/50 p-2 rounded-md">
-                                                        <strong>Owner's Availability:</strong> {property.visitAvailability}
-                                                    </p>
-                                                )}
-                                            </DialogDescription>
-                                        </DialogHeader>
-                                        <Form {...visitForm}>
-                                            <form onSubmit={visitForm.handleSubmit(onScheduleVisit)} className="space-y-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <FormField
-                                                        control={visitForm.control}
-                                                        name="visitDate"
-                                                        render={({ field }) => (
-                                                        <FormItem className="flex flex-col">
-                                                            <FormLabel>Date</FormLabel>
-                                                            <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <FormControl>
-                                                                <Button
-                                                                    variant={"outline"}
-                                                                    className={cn(
-                                                                    "pl-3 text-left font-normal",
-                                                                    !field.value && "text-muted-foreground"
-                                                                    )}
-                                                                >
-                                                                    {field.value ? (
-                                                                    format(field.value, "PPP")
-                                                                    ) : (
-                                                                    <span>Pick a date</span>
-                                                                    )}
-                                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                                </Button>
-                                                                </FormControl>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-0" align="start">
-                                                                <Calendar
-                                                                    mode="single"
-                                                                    selected={field.value}
-                                                                    onSelect={field.onChange}
-                                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                                                    initialFocus
-                                                                />
-                                                            </PopoverContent>
-                                                            </Popover>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                        )}
-                                                    />
-                                                     <FormField
-                                                        control={visitForm.control}
-                                                        name="visitTime"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                            <FormLabel>Time Slot</FormLabel>
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select a time" />
-                                                                </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                {timeSlots.map(time => (
-                                                                    <SelectItem key={time} value={time}>{time}</SelectItem>
-                                                                ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                        />
-                                                </div>
-                                                 <FormField
-                                                    control={visitForm.control}
-                                                    name="message"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                        <FormLabel>Message (Optional)</FormLabel>
-                                                        <FormControl>
-                                                            <Textarea
-                                                            placeholder="Any specific questions or requests?"
-                                                            {...field}
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                    />
-                                                <DialogFooter>
-                                                    <Button type="submit" disabled={visitForm.formState.isSubmitting}>
-                                                        {visitForm.formState.isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                                        Send Request
-                                                    </Button>
-                                                </DialogFooter>
-                                            </form>
-                                        </Form>
-                                    </DialogContent>
-                                </Dialog>
-                            </CardContent>
-                        </>
-                    ) : (
-                        <>
-                            <CardHeader>
-                                <CardTitle>Contact {privateDetails?.isAgent ? "Agent" : "Owner"}</CardTitle>
-                                <p className="text-xl font-bold text-primary">{privateDetails?.name || 'Owner Name'}</p>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="text-center p-4 bg-muted rounded-lg">
-                                    <p className="text-sm text-muted-foreground">Phone Number</p>
-                                    <p className="text-2xl font-bold tracking-widest">{privateDetails?.phone || 'N/A'}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Button asChild size="lg">
-                                        <a href={`tel:${privateDetails?.phone}`}>
-                                            <Phone className="mr-2 h-5 w-5" /> Call
-                                        </a>
-                                    </Button>
-                                    <Button asChild size="lg" variant="accent">
-                                        <a href={`https://wa.me/${(privateDetails?.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
-                                           <WhatsappIcon /> WhatsApp
-                                        </a>
-                                    </Button>
-                                </div>
-                                 <Dialog open={isVisitDialogOpen} onOpenChange={setIsVisitDialogOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="w-full" size="lg">
-                                            <CalendarIcon className="mr-2 h-5 w-5" /> Schedule Visit
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Schedule a Site Visit</DialogTitle>
-                                            <DialogDescription>
-                                                Request an appointment to see this property.
-                                                {property.visitAvailability && (
-                                                    <p className="mt-2 text-sm text-foreground bg-secondary/50 p-2 rounded-md">
-                                                        <strong>Owner's Availability:</strong> {property.visitAvailability}
-                                                    </p>
-                                                )}
-                                            </DialogDescription>
-                                        </DialogHeader>
-                                        <Form {...visitForm}>
-                                            <form onSubmit={visitForm.handleSubmit(onScheduleVisit)} className="space-y-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <FormField
-                                                        control={visitForm.control}
-                                                        name="visitDate"
-                                                        render={({ field }) => (
-                                                        <FormItem className="flex flex-col">
-                                                            <FormLabel>Date</FormLabel>
-                                                            <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <FormControl>
-                                                                <Button
-                                                                    variant={"outline"}
-                                                                    className={cn(
-                                                                    "pl-3 text-left font-normal",
-                                                                    !field.value && "text-muted-foreground"
-                                                                    )}
-                                                                >
-                                                                    {field.value ? (
-                                                                    format(field.value, "PPP")
-                                                                    ) : (
-                                                                    <span>Pick a date</span>
-                                                                    )}
-                                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                                </Button>
-                                                                </FormControl>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-0" align="start">
-                                                                <Calendar
-                                                                    mode="single"
-                                                                    selected={field.value}
-                                                                    onSelect={field.onChange}
-                                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                                                    initialFocus
-                                                                />
-                                                            </PopoverContent>
-                                                            </Popover>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                        )}
-                                                    />
-                                                     <FormField
-                                                        control={visitForm.control}
-                                                        name="visitTime"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                            <FormLabel>Time Slot</FormLabel>
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select a time" />
-                                                                </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                {timeSlots.map(time => (
-                                                                    <SelectItem key={time} value={time}>{time}</SelectItem>
-                                                                ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                        />
-                                                </div>
-                                                 <FormField
-                                                    control={visitForm.control}
-                                                    name="message"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                        <FormLabel>Message (Optional)</FormLabel>
-                                                        <FormControl>
-                                                            <Textarea
-                                                            placeholder="Any specific questions or requests?"
-                                                            {...field}
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                    />
-                                                <DialogFooter>
-                                                    <Button type="submit" disabled={visitForm.formState.isSubmitting}>
-                                                        {visitForm.formState.isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                                        Send Request
-                                                    </Button>
-                                                </DialogFooter>
-                                            </form>
-                                        </Form>
-                                    </DialogContent>
-                                </Dialog>
-                            </CardContent>
-                        </>
-                    )}
-                </Card>
+                                <Button asChild size="lg" variant="accent">
+                                    <a href={`https://wa.me/${(privateDetails?.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
+                                        <WhatsappIcon /> WhatsApp
+                                    </a>
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
       </div>

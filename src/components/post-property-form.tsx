@@ -46,7 +46,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
@@ -156,7 +156,6 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   const [isLoading, setIsLoading] = useState(true);
 
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -239,16 +238,9 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     return () => window.removeEventListener('location-changed', updateLocationFields);
   }, [form, editId]);
   
-    useEffect(() => {
-        if (!isUserLoading && !user) {
-            toast({ variant: 'destructive', title: 'Authentication Required', description: 'You must be logged in to post or edit a property.' });
-            router.push('/user-login');
-        }
-    }, [isUserLoading, user, router, toast]);
-
   useEffect(() => {
     async function fetchPropertyData() {
-        if (editId && firestore && user) {
+        if (editId && firestore) {
             setIsLoading(true);
             const propDocRef = doc(firestore, 'properties', editId);
             const privateDocRef = doc(firestore, 'propertyPrivateDetails', editId);
@@ -258,11 +250,6 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
 
                 if (propDocSnap.exists()) {
                     const data = propDocSnap.data();
-                    if (data.ownerId !== user.uid) {
-                        toast({ variant: 'destructive', title: 'Unauthorized', description: "You don't have permission to edit this property." });
-                        router.push('/dashboard/my-properties');
-                        return;
-                    }
                     const privateData = privateDocSnap.exists() ? privateDocSnap.data() : null;
 
                     form.reset({
@@ -321,7 +308,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         }
     }
     fetchPropertyData();
-  }, [editId, firestore, user, form, router, toast]);
+  }, [editId, firestore, form, router, toast]);
 
   const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
   const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
@@ -349,9 +336,8 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user || !firestore) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to post a property." });
-      router.push('/user-login');
+    if (!firestore) {
+      toast({ variant: "destructive", title: "Connection Error", description: "Could not connect to the database." });
       return;
     }
     setIsSubmitting(true);
@@ -366,7 +352,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         const authRes = await fetch('/api/imagekit/auth');
         if (!authRes.ok) throw new Error('Failed to authenticate with ImageKit.');
         const authParams = await authRes.json();
-        const uploadPromises = values.photos.map(file => imagekit.upload({ file, fileName: file.name, ...authParams, folder: `/nestil/properties/${user.uid}/` }));
+        const uploadPromises = values.photos.map(file => imagekit.upload({ file, fileName: file.name, ...authParams, folder: `/nestil/properties/anonymous/` }));
         const results = await Promise.all(uploadPromises);
         uploadedPhotoURLs = results.map(res => res.url);
       }
@@ -379,8 +365,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       
     const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
     const propertyData = {
-      // ... (map all form values to the property data structure)
-      ownerId: user.uid,
+      ownerId: "anonymous_user",
       title: values.title, description: values.description, propertyType: values.propertyType, type: values.propertyType,
       listingFor: values.listingFor, status: `For ${values.listingFor}`, city: values.city, address: values.locality,
       pincode: values.pincode, googleMapsLink: values.googleMapsLink, price: values.priceOnRequest ? 0 : values.price,
@@ -424,11 +409,11 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             const newPropRef = await addDoc(collection(firestore, 'properties'), propertyData);
             const privateRef = doc(firestore, 'propertyPrivateDetails', newPropRef.id);
             await updateDoc(doc(firestore, 'properties', newPropRef.id), { id: newPropRef.id });
-            await updateDoc(privateRef, privateDocData);
+            await setDoc(privateRef, privateDocData);
         }
         toast({ title: editId ? "Update Successful!" : "Submission Successful!", description: "Your property has been submitted for approval."});
         form.reset();
-        router.push('/dashboard/my-properties');
+        router.push(editId ? `/properties/${editId}` : '/');
     } catch (error) {
         console.error('Error processing property: ', error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -441,7 +426,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     }
   }
   
-    if (isUserLoading || isLoading) {
+    if (isLoading) {
         return <FormSkeleton />;
     }
 
@@ -865,7 +850,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             />
           </FormSection>
 
-           <FormSection title="Owner Details">
+           <FormSection title="Contact Details">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <FormField control={form.control} name="ownerName" render={({ field }) => (
                   <FormItem><FormLabel>Your Name</FormLabel><FormControl><Input placeholder="Enter your full name" {...field} /></FormControl><FormMessage /></FormItem>

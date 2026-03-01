@@ -23,11 +23,9 @@ const WhatsappIcon = () => (
 
 interface PropertyCardProps {
   property: Property;
-  isFavorited?: boolean;
-  onToggleFavorite?: (propertyId: string, isCurrentlyFavorited: boolean) => void;
 }
 
-export function PropertyCard({ property, isFavorited, onToggleFavorite }: PropertyCardProps) {
+export function PropertyCard({ property }: PropertyCardProps) {
   const { toast } = useToast();
   const ownerType = property.postedByType;
   const isJustListed = property.dateAdded ? differenceInDays(new Date(), parseISO(property.dateAdded)) <= 3 : false;
@@ -38,12 +36,6 @@ export function PropertyCard({ property, isFavorited, onToggleFavorite }: Proper
     const url = `${window.location.origin}/properties/${property.id}`;
     navigator.clipboard.writeText(url);
     toast({ title: "Link Copied!", description: "Property link copied to clipboard." });
-  };
-
-  const handleFavoriteClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onToggleFavorite?.(property.id, !!isFavorited);
   };
 
   return (
@@ -60,11 +52,6 @@ export function PropertyCard({ property, isFavorited, onToggleFavorite }: Proper
           data-ai-hint="modern house"
         />
         <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
-          {onToggleFavorite && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70" onClick={handleFavoriteClick} title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}>
-              <Heart className={cn("h-4 w-4 transition-colors", isFavorited ? "fill-destructive text-destructive" : "")} />
-            </Button>
-          )}
            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70" onClick={handleShareClick} title="Share property">
               <Share2 className="h-4 w-4" />
             </Button>

@@ -1,7 +1,8 @@
 
 
+// This type is used for PDF generation
 export type PropertyOwner = {
-  id?: string; // This is not consistently available. Often it's the user ID.
+  id?: string;
   name: string;
   phone: string;
   isAgent: boolean;
@@ -60,32 +61,4 @@ export type Property = {
   postedAt: any; // Firestore ServerTimestamp
   updatedAt: any; // Firestore ServerTimestamp
   googleMapsLink?: string;
-};
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  dateJoined: string;
-  role: 'Owner' | 'Agent' | 'Builder';
-  listings: number;
-  credits?: number;
-  subscriptionEndDate?: string;
-  isBanned?: boolean;
-};
-
-export type SiteVisit = {
-  id: string;
-  propertyId: string;
-  propertyTitle: string;
-  propertyImage: string;
-  visitorId: string;
-  ownerId: string;
-  scheduledAt: string; // ISO string
-  message: string;
-  status: 'pending' | 'confirmed' | 'rejected';
-  createdAt: any; // serverTimestamp
-  visitorName: string;
-  visitorPhone: string;
 };

@@ -23,30 +23,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LocationSelector } from './location-selector';
 import { useState } from 'react';
-import { useAuth, useUser } from '@/firebase';
-import { signOut } from 'firebase/auth';
 
 export function Header() {
   const pathname = usePathname();
-  const router = useRouter();
-  
-  const { user: currentUser, isUserLoading } = useUser();
-  const auth = useAuth();
 
   const navLinks = [
     { href: '/properties?transaction=Rent', label: 'Rent' },
     { href: '/properties?transaction=Sale', label: 'Buy' },
   ];
   
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-    }
-    router.push('/');
-  };
-
-  const isAdmin = currentUser?.email === 'helpnestil@gmail.com';
-
   // Create a specific list for the mobile menu to avoid duplicate keys.
   const mobileNavLinks = [...navLinks, { href: '/post-property', label: 'Post Property Free' }];
 
@@ -81,35 +66,6 @@ export function Header() {
               Post Property Free
             </Link>
           </Button>
-
-          {isUserLoading ? (
-            <div className="h-10 w-10 rounded-full bg-secondary animate-pulse" />
-          ) : currentUser ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="icon" className="rounded-full">
-                  <User className="h-5 w-5" />
-                  <span className="sr-only">Toggle user menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild><Link href="/dashboard">Dashboard</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href="/dashboard/my-properties">My Properties</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href="/favorites">Favorites</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link href="/buy-credits" className="flex items-center gap-2"><Coins /> Buy Credits</Link></DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild><Link href="/admin">Admin Panel</Link></DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null }
 
           <Sheet>
             <SheetTrigger asChild>

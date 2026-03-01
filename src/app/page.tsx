@@ -15,16 +15,13 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
-import { useFavorites } from '@/hooks/use-favorites';
 
 
 function RecentListings() {
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-  const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
 
   const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -38,7 +35,7 @@ function RecentListings() {
   }, [firestore]);
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
-  const isLoading = isLoadingFavorites || isLoadingProperties || isUserLoading;
+  const isLoading = isLoadingProperties;
 
   return (
       <section className="py-16 md:py-24 bg-background">
@@ -65,8 +62,6 @@ function RecentListings() {
                   <PropertyCard
                     key={prop.id}
                     property={prop}
-                    isFavorited={user ? favoriteIds.has(prop.id) : false}
-                    onToggleFavorite={user ? () => toggleFavorite(prop.id, favoriteIds.has(prop.id)) : undefined}
                   />
                 ))}
               </div>

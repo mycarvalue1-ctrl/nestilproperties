@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
-import type { User as AppUser, Property, PropertyOwner } from "@/lib/types";
+import type { Property, PropertyOwner } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -146,18 +146,14 @@ const PropertyPdfCard = ({ property, owner, innerRef }: { property: Property | n
 
 
 export default function AdminPage() {
-  const { user: currentUser, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const isAdmin = currentUser?.email === 'helpnestil@gmail.com';
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const [pdfProperty, setPdfProperty] = useState<{ property: Property, owner: PropertyOwner } | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [processingUserId, setProcessingUserId] = useState<string | null>(null);
   const [processingPropertyId, setProcessingPropertyId] = useState<string | null>(null);
 
-  const [userSearch, setUserSearch] = useState('');
   const [propertySearch, setPropertySearch] = useState('');
   const [propertyStatusFilter, setPropertyStatusFilter] = useState('all');
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all');
@@ -218,31 +214,16 @@ export default function AdminPage() {
   }
 
   const allPropertiesQuery = useMemoFirebase(() => {
-    if (!firestore || !isAdmin || isUserLoading) return null;
+    if (!firestore) return null;
     return collection(firestore, 'properties');
-  }, [firestore, isAdmin, isUserLoading]);
+  }, [firestore]);
 
   const { data: allProperties, isLoading: propertiesLoading } = useCollection<Property>(allPropertiesQuery);
     
-  const usersQuery = useMemoFirebase(() => {
-    if (!firestore || !isAdmin || isUserLoading) return null;
-    return collection(firestore, 'users');
-  }, [firestore, isAdmin, isUserLoading]);
-  const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
-
   const pendingProperties = useMemo(() => {
     return allProperties?.filter(p => p.listingStatus === 'pending') || [];
   }, [allProperties]);
 
-
-  const filteredUsers = useMemo(() => {
-    if (!users) return [];
-    return users.filter(user =>
-      user.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      user.phone?.includes(userSearch)
-    );
-  }, [users, userSearch]);
 
   const filteredProperties = useMemo(() => {
     if (!allProperties) return [];
@@ -260,13 +241,12 @@ export default function AdminPage() {
     });
   }, [allProperties, propertySearch, propertyStatusFilter, propertyTypeFilter]);
   
-  if (propertiesLoading || usersLoading) {
+  if (propertiesLoading) {
       return <AdminSkeleton />;
   }
 
   const activeListings = allProperties?.filter(p => p.isApproved).length || 0;
   const soldRentedCount = allProperties?.filter(p => p.listingStatus === 'sold' || p.listingStatus === 'rented').length || 0;
-  const usersCount = users?.length || 0;
   const propertiesCount = allProperties?.length || 0;
 
   const handleApprove = async (id: string) => {
@@ -303,41 +283,6 @@ export default function AdminPage() {
         }));
       })
       .finally(() => setProcessingPropertyId(null));
-  };
-
-  const handleBlockUser = (userId: string, isCurrentlyBanned: boolean) => {
-    if (!firestore) return;
-    setProcessingUserId(userId);
-    const docRef = doc(firestore, 'users', userId);
-    const data = { isBanned: !isCurrentlyBanned };
-    updateDoc(docRef, data)
-        .then(() => toast({ title: `User ${isCurrentlyBanned ? 'Unbanned' : 'Banned'}`, description: `The user has been successfully ${isCurrentlyBanned ? 'unbanned' : 'banned'}.` }))
-        .catch(error => {
-            console.error("Error updating user status:", error);
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'update',
-                requestResourceData: data,
-            }));
-        })
-        .finally(() => setProcessingUserId(null));
-  };
-
-  const handleDeleteUser = (userId: string) => {
-      if (!firestore) return;
-      if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
-      setProcessingUserId(userId);
-      const docRef = doc(firestore, 'users', userId);
-      deleteDoc(docRef)
-        .then(() => toast({ title: "User Deleted", description: "The user document has been removed." }))
-        .catch(error => {
-            console.error("Error deleting user:", error);
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'delete',
-            }));
-        })
-        .finally(() => setProcessingUserId(null));
   };
 
   const handleArchiveProperty = (propertyId: string) => {
@@ -382,43 +327,6 @@ export default function AdminPage() {
         .finally(() => setProcessingPropertyId(null));
   };
 
-  const handleUserCsvDownload = () => {
-    if (!users) return;
-    const headers = ['id', 'name', 'email', 'phone', 'dateJoined', 'role', 'listings'];
-    
-    const escapeCsvCell = (cell: string | number | boolean | undefined | null) => {
-      if (cell === null || cell === undefined) return '';
-      const cellStr = String(cell);
-      if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-        return `"${cellStr.replace(/"/g, '""')}"`;
-      }
-      return cellStr;
-    };
-
-    const csvContent = [
-      headers.join(','),
-      ...users.map(user => [
-        user.id,
-        user.name,
-        user.email,
-        user.phone,
-        user.dateJoined,
-        user.role,
-        user.listings
-      ].map(v => escapeCsvCell(v)).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const today = new Date().toISOString().split('T')[0];
-
-    link.setAttribute('href', url);
-    link.setAttribute('download', `nestil_users_${today}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
   
   const handlePropertyCsvDownload = () => {
     if (!allProperties) return;
@@ -491,20 +399,11 @@ export default function AdminPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground">
-          Manage property listings and users.
+          Manage property listings.
         </p>
       </div>
 
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{usersCount}</div>
-            </CardContent>
-        </Card>
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
@@ -542,90 +441,6 @@ export default function AdminPage() {
             </CardContent>
         </Card>
        </div>
-
-      <Card className="mb-8">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <CardTitle className="flex items-center gap-2"><Users /> User Management</CardTitle>
-            <CardDescription>
-              A total of {usersCount} users found. Search by name, email, or phone.
-            </CardDescription>
-          </div>
-           <div className="flex w-full md:w-auto items-center gap-4">
-            <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search users..." className="pl-10" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
-            </div>
-            <Button onClick={handleUserCsvDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download CSV
-            </Button>
-           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
-                <TableHead className="hidden md:table-cell">Phone</TableHead>
-                <TableHead className="hidden md:table-cell">Role</TableHead>
-                <TableHead>Listings</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers && filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    <div>{user.name}</div>
-                    {user.isBanned && <Badge variant="destructive" className="mt-1">Banned</Badge>}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
-                  <TableCell className="hidden md:table-cell">{user.phone}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Badge variant={user.role === 'Agent' || user.role === 'Builder' ? 'secondary' : 'outline'}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{user.listings ?? 'N/A'}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={processingUserId === user.id}>
-                            {processingUserId === user.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                         <DropdownMenuItem asChild>
-                            <Link href={`/properties?userId=${user.id}`} className="cursor-pointer">
-                                <Eye className="mr-2 h-4 w-4" /> View Listings
-                            </Link>
-                        </DropdownMenuItem>
-                         <DropdownMenuItem 
-                            disabled={processingUserId === user.id}
-                            className={cn("cursor-pointer", user.isBanned ? "text-green-600 focus:text-green-600" : "text-orange-600 focus:text-orange-600")}
-                            onClick={() => handleBlockUser(user.id, user.isBanned || false)}
-                         >
-                             {processingUserId === user.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
-                             {user.isBanned ? 'Unban User' : 'Ban User'}
-                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                            disabled={processingUserId === user.id}
-                            className="text-red-600 focus:text-red-600 cursor-pointer"
-                            onClick={() => handleDeleteUser(user.id)}
-                        >
-                            {processingUserId === user.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
 
       <Card className="mb-8">
         <CardHeader>

@@ -8,15 +8,6 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
-  { href: '/dashboard/my-properties', label: 'My Properties', icon: List },
-  { href: '/dashboard/visit-requests', label: 'Visit Requests', icon: CalendarCheck },
-  { href: '/favorites', label: 'My Favorites', icon: Heart },
-  { href: '/dashboard/profile', label: 'Profile', icon: User },
-  { href: '/buy-credits', label: 'Buy Credits', icon: Coins },
-];
-
 export function DashboardNav() {
   const pathname = usePathname();
   const auth = useAuth();
@@ -31,23 +22,7 @@ export function DashboardNav() {
 
   return (
     <nav className="flex flex-col gap-2">
-      {navItems.map((item) => (
-        <Link key={item.href} href={item.href} passHref>
-          <Button
-            variant={pathname === item.href ? 'secondary' : 'ghost'}
-            className="w-full justify-start gap-2"
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </Button>
-        </Link>
-      ))}
-      <div className="border-t mt-4 pt-4">
-        <Button variant="ghost" className="w-full justify-start gap-2" onClick={handleLogout}>
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
-      </div>
+      <p className="text-sm text-muted-foreground p-2">Dashboard has been disabled.</p>
     </nav>
   );
 }
