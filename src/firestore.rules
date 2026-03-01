@@ -49,15 +49,8 @@ service cloud.firestore {
       allow update, delete: if isOwner(resource.data.ownerId);
       
       // --- READS ---
-      // Get: An admin, the owner, or anyone (if approved) can get a document.
-      allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
-      
-      // List: Anyone can perform a list query.
-      // The security is enforced by the 'get' rule which is checked for each document
-      // that the query returns. Therefore, client queries must be constructed
-      // to only ask for documents the user is allowed to 'get'. For public users,
-      // this means `where('isApproved', '==', true)`.
-      allow list: if true;
+      // Only signed-in users can read any property data.
+      allow read: if isSignedIn();
     }
 
 

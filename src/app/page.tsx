@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { PropertyCard, PropertyCardSkeleton } from '@/components/property-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building, Home as HomeIcon, Search, Trees, User } from 'lucide-react';
+import { Building, Home as HomeIcon, Search, Trees, User, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { locationData } from '@/lib/locations';
 import {
@@ -21,30 +21,93 @@ import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
 
 
-export default function Home() {
+function LoggedInHome() {
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-  const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
+  const { favoriteIds, toggleFavorite } = useFavorites();
 
   const recentPropertiesQuery = useMemoFirebase(() => {
-    // This query is for the public homepage and should run for everyone.
     if (!firestore) return null;
 
     return query(
       collection(firestore, 'properties'),
-      where('isApproved', '==', true),
+      where('listingStatus', '==', 'approved'),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
   }, [firestore]);
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
-  
-  // The public list of properties is the primary loading state.
-  // Auth-related loading is handled separately for UI elements like the favorite heart.
-  const isLoading = isLoadingProperties;
+
+  return (
+      <section className="py-16 md:py-24 bg-background">
+        <div className="container">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+            <div className="text-center md:text-left">
+              <h2 className="text-3xl md:text-4xl font-bold">
+                Latest Listings
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                Check out the latest properties fresh on the market.
+              </p>
+            </div>
+          </div>
+          
+          {isLoadingProperties ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[...Array(6)].map((_, i) => <PropertyCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {recentProperties?.map((prop) => (
+                  <PropertyCard
+                    key={prop.id}
+                    property={prop}
+                    isFavorited={favoriteIds.has(prop.id)}
+                    onToggleFavorite={() => toggleFavorite(prop.id, favoriteIds.has(prop.id))}
+                  />
+                ))}
+              </div>
+              <div className="text-center mt-12">
+                <Button size="lg" asChild>
+                  <Link href="/properties">View All Properties</Link>
+                </Button>
+              </div>
+            </>
+          )}
+
+        </div>
+      </section>
+  )
+}
+
+function LoggedOutHome() {
+  return (
+     <section className="py-16 md:py-24 bg-background">
+        <div className="container">
+            <div className="text-center py-16 border-dashed border-2 rounded-lg">
+                <LogIn className="mx-auto h-12 w-12 text-primary mb-4" />
+                <h2 className="text-2xl font-bold">Welcome to Nestil</h2>
+                <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+                    Please log in or create an account to view property listings, save your favorites, and connect with owners.
+                </p>
+                <div className="mt-6 flex justify-center gap-4">
+                    <Button asChild>
+                    <Link href="/user-login">Login</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                    <Link href="/signup">Sign Up</Link>
+                    </Button>
+              </div>
+            </div>
+        </div>
+      </section>
+  )
+}
 
 
+export default function Home() {
+  const { user, isUserLoading } = useUser();
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
 
   useEffect(() => {
@@ -61,6 +124,23 @@ export default function Home() {
     setShuffledLocalAreas(allLocalAreas.slice(0, 10));
   }, []); // Empty dependency array ensures this runs once on the client after mount.
       
+  const renderContent = () => {
+    if (isUserLoading) {
+      return (
+         <section className="py-16 md:py-24 bg-background">
+            <div className="container">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[...Array(6)].map((_, i) => <PropertyCardSkeleton key={i} />)}
+              </div>
+            </div>
+        </section>
+      );
+    }
+    if (user) {
+      return <LoggedInHome />;
+    }
+    return <LoggedOutHome />;
+  }
 
   return (
     <>
@@ -100,45 +180,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16 md:py-24 bg-background">
-        <div className="container">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
-            <div className="text-center md:text-left">
-              <h2 className="text-3xl md:text-4xl font-bold">
-                Latest Listings
-              </h2>
-              <p className="text-muted-foreground mt-2">
-                Check out the latest properties fresh on the market.
-              </p>
-            </div>
-          </div>
-          
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[...Array(6)].map((_, i) => <PropertyCardSkeleton key={i} />)}
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {recentProperties?.map((prop) => (
-                  <PropertyCard
-                    key={prop.id}
-                    property={prop}
-                    isFavorited={favoriteIds.has(prop.id)}
-                    onToggleFavorite={() => toggleFavorite(prop.id, favoriteIds.has(prop.id))}
-                  />
-                ))}
-              </div>
-              <div className="text-center mt-12">
-                <Button size="lg" asChild>
-                  <Link href="/properties">View All Properties</Link>
-                </Button>
-              </div>
-            </>
-          )}
-
-        </div>
-      </section>
+      {renderContent()}
 
       <section className="py-16 md:py-24 bg-secondary/50">
         <div className="container">

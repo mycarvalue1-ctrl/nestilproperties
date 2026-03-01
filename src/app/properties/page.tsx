@@ -15,11 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, Search, User } from 'lucide-react';
+import { Filter, Search, User, LogIn } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -29,21 +29,20 @@ import Link from 'next/link';
 function PropertyList() {
   const searchParams = useSearchParams();
   const types = searchParams.getAll('type');
-
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { favoriteIds, toggleFavorite } = useFavorites();
 
   const propertiesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null; // Only query if user is logged in
 
     const q = collection(firestore, 'properties');
     const constraints: any[] = [
-        where('isApproved', '==', true),
         orderBy('dateAdded', 'desc')
     ];
 
     return query(q, ...constraints);
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: serverFilteredProperties, isLoading: isLoadingProperties } = useCollection<Property>(propertiesQuery);
   
@@ -72,7 +71,7 @@ function PropertyList() {
     });
   }, [serverFilteredProperties, types]);
 
-  const isLoading = isLoadingProperties;
+  const isLoading = isUserLoading || (user && isLoadingProperties);
 
   if (isLoading) {
     return (
@@ -85,6 +84,28 @@ function PropertyList() {
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return (
+        <div className="flex-1">
+            <div className="text-center py-16 border-dashed border-2 rounded-lg mt-4">
+                <LogIn className="mx-auto h-12 w-12 text-primary mb-4" />
+                <h2 className="text-2xl font-bold">Please Log In</h2>
+                <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+                    You need to be logged in to view property listings.
+                </p>
+                <div className="mt-6 flex justify-center gap-4">
+                    <Button asChild>
+                    <Link href="/user-login">Login</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                    <Link href="/signup">Sign Up</Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
+    )
   }
 
   return (
