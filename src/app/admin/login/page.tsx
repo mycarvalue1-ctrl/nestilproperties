@@ -18,7 +18,7 @@ import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Shield } from 'lucide-react';
+import { Shield, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const formSchema = z.object({
@@ -108,7 +108,10 @@ export default function AdminLoginPage() {
               />
             </CardContent>
             <CardFooter className="flex-col">
-              <Button type="submit" className="w-full">Sign in as Admin</Button>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <LoaderCircle className="animate-spin mr-2" />}
+                Sign in as Admin
+              </Button>
                <div className="mt-4 text-center text-sm">
                 Not an admin?{" "}
                 <Link href="/user-login" className="underline">
