@@ -29,12 +29,20 @@ function LoggedInHome() {
   const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
-    return query(
+    const isAdmin = user?.email === 'helpnestil@gmail.com';
+    let q = query(
       collection(firestore, 'properties'),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
-  }, [firestore]);
+
+    // Only apply the 'approved' filter if the user is not an admin
+    if (!isAdmin) {
+      q = query(q, where('isApproved', '==', true));
+    }
+
+    return q;
+  }, [firestore, user]);
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
   const isLoading = isLoadingFavorites || isLoadingProperties;

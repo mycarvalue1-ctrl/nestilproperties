@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -19,12 +20,21 @@ export default function FavoritesPage() {
 
   const favPropertiesQuery = useMemoFirebase(() => {
     if (!firestore || favoritePropertyIds.length === 0) return null;
+    
+    const isAdmin = user?.email === 'helpnestil@gmail.com';
     // Firestore 'in' query is limited to 30 elements at a time.
-    return query(
+    let q = query(
         collection(firestore, 'properties'), 
         where(documentId(), 'in', favoritePropertyIds.slice(0, 30))
     );
-  }, [firestore, favoritePropertyIds]);
+
+    // Public users should only see approved favorites.
+    if (!isAdmin) {
+      q = query(q, where('isApproved', '==', true));
+    }
+
+    return q;
+  }, [firestore, favoritePropertyIds, user]);
 
   const { data: favoriteProperties, isLoading: isLoadingProperties } = useCollection<Property>(favPropertiesQuery);
 

@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -42,18 +43,19 @@ service cloud.firestore {
     // =================================
     match /properties/{propertyId} {
         // --- WRITES ---
+        // Only the property owner can create a listing.
         allow create: if isOwner(request.resource.data.ownerId);
+        // Only the owner or an admin can update or delete.
         allow update, delete: if isOwner(resource.data.ownerId) || isAdmin();
 
         // --- READS ---
-        // GET rule: Determines if a user can read a *single specific document*.
-        // This can check document fields because it operates on a single resource.
-        allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
+        // A single document can be read if it's approved, or if the request is from the owner or an admin.
+        allow get: if resource.data.isApproved == true || isOwner(resource.data.ownerId) || isAdmin();
 
-        // LIST rule: Determines if a user can run a *query*. This CANNOT use `resource.data`.
-        // Security is enforced because Firestore ensures that any query ONLY returns documents
-        // that the user has permission to GET. If a query could potentially return a
-        // document that fails the GET rule, the entire query is denied.
+        // Any user (even unauthenticated) can attempt to list properties.
+        // Firestore guarantees that the query will only return documents that the user
+        // has permission to 'get'. For a public user, this means their query MUST
+        // include `where('isApproved', '==', true)`.
         allow list: if true;
     }
     
@@ -62,7 +64,8 @@ service cloud.firestore {
     // =================================
     match /propertyPrivateDetails/{propertyId} {
         // Only a logged-in user can read the contact details.
-        // The app logic (credits/subscription) should be handled on the client.
+        // The app logic (credits/subscription) is handled on the client-side.
+        // This rule is permissive to allow the credit-based system to function.
         allow read: if isSignedIn();
 
         // Only the actual property owner or an admin can create/edit/delete private details.

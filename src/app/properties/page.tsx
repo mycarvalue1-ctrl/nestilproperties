@@ -56,6 +56,12 @@ function PropertyList() {
     if (!firestore) return null;
 
     let q: Query<Property> = query(collection(firestore, 'properties')) as Query<Property>;
+    
+    const isAdmin = user?.email === 'helpnestil@gmail.com';
+    // Public users should only see approved properties
+    if (!isAdmin) {
+      q = query(q, where('isApproved', '==', true));
+    }
 
     // Transaction filter
     const transaction = searchParams.get('transaction');
@@ -97,7 +103,7 @@ function PropertyList() {
     }
 
     return q;
-  }, [firestore, searchParams, sortOption]);
+  }, [firestore, searchParams, sortOption, user]);
 
   const { data: serverFilteredProperties, isLoading: isLoadingProperties } = useCollection<Property>(propertiesQuery);
   
