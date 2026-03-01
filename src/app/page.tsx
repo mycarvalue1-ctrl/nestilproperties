@@ -31,7 +31,6 @@ function LoggedInHome() {
 
     return query(
       collection(firestore, 'properties'),
-      where('isApproved', '==', true),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );

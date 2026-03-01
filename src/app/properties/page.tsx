@@ -57,9 +57,6 @@ function PropertyList() {
 
     let q: Query<Property> = query(collection(firestore, 'properties')) as Query<Property>;
 
-    // Base filter for security rules
-    q = query(q, where('isApproved', '==', true));
-
     // Transaction filter
     const transaction = searchParams.get('transaction');
     if (transaction && transaction !== 'all') {
