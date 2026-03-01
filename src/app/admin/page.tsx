@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -26,21 +27,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
-import type { User as AppUser, Property } from "@/lib/types";
+import type { User as AppUser, Property, PropertyOwner } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { collection, doc, updateDoc, deleteDoc, query, where, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, query, where, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-
-// This type is defined inline in the original file, so we do the same
-type PropertyOwner = { name: string; phone: string; isAgent: boolean; };
 
 function AdminSkeleton() {
   return (
@@ -219,20 +217,12 @@ export default function AdminPage() {
     }
   }
 
-  const publicPropertiesQuery = useMemoFirebase(() => {
+  const allPropertiesQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
-    return collection(firestore, 'public_properties');
+    return collection(firestore, 'properties');
   }, [firestore, isAdmin]);
 
-  const pendingPropertiesQuery = useMemoFirebase(() => {
-    if (!firestore || !isAdmin) return null;
-    // This query now needs to be a collection group query to find pending properties across all users.
-    // Ensure you have a Firestore index for this: user_properties | listingStatus (asc)
-    return query(collection(firestore, 'user_properties'), where('listingStatus', '==', 'pending'));
-  }, [firestore, isAdmin]);
-
-  const { data: publicProperties, isLoading: propertiesLoading } = useCollection<Property>(publicPropertiesQuery);
-  const { data: pendingProperties, isLoading: pendingLoading } = useCollection<Property>(pendingPropertiesQuery);
+  const { data: allProperties, isLoading: propertiesLoading } = useCollection<Property>(allPropertiesQuery);
     
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -240,17 +230,10 @@ export default function AdminPage() {
   }, [firestore, isAdmin]);
   const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
 
-  const allProperties = useMemo(() => {
-    const combined = [...(publicProperties || [])];
-    if (pendingProperties) {
-        pendingProperties.forEach(pending => {
-            if (!combined.some(p => p.id === pending.id)) {
-                combined.push(pending);
-            }
-        });
-    }
-    return combined;
-  }, [publicProperties, pendingProperties]);
+  const pendingProperties = useMemo(() => {
+    return allProperties?.filter(p => p.listingStatus === 'pending') || [];
+  }, [allProperties]);
+
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -277,85 +260,49 @@ export default function AdminPage() {
     });
   }, [allProperties, propertySearch, propertyStatusFilter, propertyTypeFilter]);
   
-  if (propertiesLoading || usersLoading || pendingLoading) {
+  if (propertiesLoading || usersLoading) {
       return <AdminSkeleton />;
   }
 
-  const activeListings = allProperties?.filter(p => p.listingStatus === 'approved').length || 0;
+  const activeListings = allProperties?.filter(p => p.isApproved).length || 0;
   const soldRentedCount = allProperties?.filter(p => p.listingStatus === 'sold' || p.listingStatus === 'rented').length || 0;
   const usersCount = users?.length || 0;
   const propertiesCount = allProperties?.length || 0;
 
-  const handleApprove = async (id: string, ownerId: string) => {
+  const handleApprove = async (id: string) => {
     if (!firestore) return;
     setProcessingPropertyId(id);
-
-    const userPropRef = doc(firestore, 'user_properties', ownerId, id);
-    const publicPropRef = doc(firestore, 'public_properties', id);
-
-    try {
-      const propDocSnap = await getDoc(userPropRef);
-      if (!propDocSnap.exists()) {
-        throw new Error("Property document not found in user's collection.");
-      }
-
-      const propertyData = propDocSnap.data();
-      const batch = writeBatch(firestore);
-      
-      const publicData = {
-          ...propertyData,
-          listingStatus: 'approved',
-          isApproved: true,
-      };
-
-      // 1. Set the data in the public collection
-      batch.set(publicPropRef, publicData);
-
-      // 2. Update the status in the user's private collection
-      batch.update(userPropRef, {
-        listingStatus: 'approved',
-        isApproved: true,
-      });
-
-      await batch.commit();
-
-      toast({ title: "Property Approved", description: "The listing is now live." });
-
-    } catch (error: any) {
-      console.error("Error approving property:", error);
-      const permissionError = new FirestorePermissionError({
-        path: `user_properties/${ownerId}/${id} or public_properties/${id}`,
-        operation: 'write',
-        requestResourceData: { listingStatus: 'approved' },
-      });
-      errorEmitter.emit('permission-error', permissionError);
-      toast({ variant: 'destructive', title: 'Approval Failed', description: error.message || "Could not approve property." });
-    } finally {
-      setProcessingPropertyId(null);
-    }
+    const propRef = doc(firestore, 'properties', id);
+    const data = { isApproved: true, listingStatus: 'approved' };
+    updateDoc(propRef, data)
+      .then(() => toast({ title: "Property Approved", description: "The listing is now live." }))
+      .catch(error => {
+        console.error("Error approving property:", error);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: propRef.path,
+          operation: 'update',
+          requestResourceData: data,
+        }));
+      })
+      .finally(() => setProcessingPropertyId(null));
   };
 
-  const handleReject = (id: string, ownerId: string) => {
+  const handleReject = (id: string) => {
     if (!firestore) return;
     setProcessingPropertyId(id);
-    const userPropRef = doc(firestore, 'user_properties', ownerId, id);
-    const publicPropRef = doc(firestore, 'public_properties', id);
-    const batch = writeBatch(firestore);
-
-    batch.update(userPropRef, { listingStatus: 'rejected', isApproved: false });
-    batch.delete(publicPropRef); // Remove from public view
-
-    batch.commit()
-        .then(() => toast({ title: "Property Rejected" }))
-        .catch(error => {
-            console.error("Error rejecting property:", error);
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: userPropRef.path,
-                operation: 'update',
-                requestResourceData: { listingStatus: 'rejected' },
-            }));
-        })
-        .finally(() => setProcessingPropertyId(null));
+    const propRef = doc(firestore, 'properties', id);
+    const data = { isApproved: false, listingStatus: 'rejected' };
+    updateDoc(propRef, data)
+      .then(() => toast({ title: "Property Rejected" }))
+      .catch(error => {
+        console.error("Error rejecting property:", error);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: propRef.path,
+            operation: 'update',
+            requestResourceData: data,
+        }));
+      })
+      .finally(() => setProcessingPropertyId(null));
   };
 
   const handleBlockUser = (userId: string, isCurrentlyBanned: boolean) => {
@@ -393,54 +340,41 @@ export default function AdminPage() {
         .finally(() => setProcessingUserId(null));
   };
 
-  const handleArchiveProperty = (propertyId: string, ownerId: string) => {
+  const handleArchiveProperty = (propertyId: string) => {
     if (!firestore) return;
     if (!window.confirm("Are you sure you want to archive this property? It will be hidden from public view but not permanently deleted.")) return;
     setProcessingPropertyId(propertyId);
-    
-    const userPropRef = doc(firestore, 'user_properties', ownerId, propertyId);
-    const publicPropRef = doc(firestore, 'public_properties', propertyId);
-    const batch = writeBatch(firestore);
-
-    batch.update(userPropRef, { listingStatus: 'archived' });
-    batch.delete(publicPropRef); // Also delete from public
-
-    batch.commit()
-        .then(() => toast({ title: "Property Archived", description: "The property listing has been archived and removed from public view." }))
+    const propRef = doc(firestore, 'properties', propertyId);
+    const data = { listingStatus: 'archived' };
+    updateDoc(propRef, data)
+        .then(() => toast({ title: "Property Archived", description: "The property listing has been archived." }))
         .catch(error => {
             console.error("Error archiving property:", error);
             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: userPropRef.path,
+                path: propRef.path,
                 operation: 'update',
-                requestResourceData: { listingStatus: 'archived' },
+                requestResourceData: data,
             }));
         })
         .finally(() => setProcessingPropertyId(null));
   };
   
-  const handleMarkAsSoldRented = (propertyId: string, ownerId: string, currentStatus: string) => {
+  const handleMarkAsSoldRented = (propertyId: string) => {
       if (!firestore) return;
       const property = allProperties?.find(p => p.id === propertyId);
       if (!property) return;
 
-      const isForRent = property.listingFor === 'Rent';
-      const newStatus = currentStatus === 'sold' || currentStatus === 'rented' ? 'approved' : (isForRent ? 'rented' : 'sold');
+      const newStatus = property.listingStatus === 'sold' || property.listingStatus === 'rented' ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
       setProcessingPropertyId(propertyId);
-      const userPropRef = doc(firestore, 'user_properties', ownerId, propertyId);
-      const publicPropRef = doc(firestore, 'public_properties', propertyId);
+      const propRef = doc(firestore, 'properties', propertyId);
       const data = { listingStatus: newStatus };
 
-      const batch = writeBatch(firestore);
-      batch.update(userPropRef, data);
-      // set with merge will create it if it doesn't exist (e.g. was archived then marked available)
-      batch.set(publicPropRef, { ...property, ...data }, { merge: true });
-      
-      batch.commit()
+      updateDoc(propRef, data)
         .then(() => toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` }))
         .catch(error => {
             console.error("Error updating property status:", error);
             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: userPropRef.path,
+                path: propRef.path,
                 operation: 'update',
                 requestResourceData: data,
             }));
@@ -595,7 +529,7 @@ export default function AdminPage() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{pendingProperties?.length || 0}</div>
+                <div className="text-2xl font-bold">{pendingProperties.length}</div>
             </CardContent>
         </Card>
         <Card>
@@ -721,10 +655,10 @@ export default function AdminPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={() => handleApprove(prop.id, prop.ownerId)} disabled={processingPropertyId === prop.id}>
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={() => handleApprove(prop.id)} disabled={processingPropertyId === prop.id}>
                           {processingPropertyId === prop.id ? <LoaderCircle className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4" />} Approve
                         </Button>
-                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleReject(prop.id, prop.ownerId)} disabled={processingPropertyId === prop.id}>
+                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleReject(prop.id)} disabled={processingPropertyId === prop.id}>
                           {processingPropertyId === prop.id ? <LoaderCircle className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />} Reject
                         </Button>
                       </div>
@@ -836,7 +770,7 @@ export default function AdminPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="cursor-pointer"
-                                onClick={() => handleMarkAsSoldRented(prop.id, prop.ownerId, prop.listingStatus)}
+                                onClick={() => handleMarkAsSoldRented(prop.id)}
                                 disabled={processingPropertyId === prop.id}
                             >
                                 {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
@@ -851,7 +785,7 @@ export default function AdminPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="text-orange-600 focus:text-orange-600 cursor-pointer"
-                                onClick={() => handleArchiveProperty(prop.id, prop.ownerId)}
+                                onClick={() => handleArchiveProperty(prop.id)}
                                 disabled={processingPropertyId === prop.id}
                             >
                                 {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}Archive

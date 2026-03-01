@@ -91,7 +91,7 @@ export default function PropertyDetailPage() {
 
   const propertyRef = useMemoFirebase(() => {
     if (!firestore || !params.id) return null;
-    return doc(firestore, 'public_properties', params.id);
+    return doc(firestore, 'properties', params.id);
   }, [firestore, params.id]);
 
   const { data: property, isLoading: isPropertyLoading } = useDoc<Property>(propertyRef);
@@ -280,12 +280,12 @@ export default function PropertyDetailPage() {
     return <PropertyDetailSkeleton />;
   }
 
-  if (!property) {
+  if (!property || !property.isApproved) {
     return (
         <div className="container py-10">
-          <h1 className="text-2xl font-bold">Property Not Found</h1>
+          <h1 className="text-2xl font-bold">Property Not Available</h1>
           <p className="text-muted-foreground mt-2">
-            The property with ID "{params.id}" could not be loaded. It may have been removed, or there was an issue retrieving the data.
+            The property you are looking for is either not available or does not exist.
           </p>
         </div>
     );

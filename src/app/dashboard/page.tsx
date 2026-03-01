@@ -1,3 +1,4 @@
+
 'use client'; // Required because we are using hooks
 
 import { Button } from "@/components/ui/button";
@@ -14,13 +15,13 @@ export default function DashboardPage() {
 
   const userPropertiesQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'user_properties', user.uid);
+    return query(collection(firestore, 'properties'), where('ownerId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: userProperties, isLoading } = useCollection<Property>(userPropertiesQuery);
 
   const totalProperties = userProperties?.length || 0;
-  const activeListings = userProperties?.filter(p => p.listingStatus === 'approved').length || 0;
+  const activeListings = userProperties?.filter(p => p.isApproved).length || 0;
 
   return (
     <div>

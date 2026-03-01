@@ -29,9 +29,9 @@ function RecentListings() {
   const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     
-    // Query the public_properties collection for recent, approved listings.
     return query(
-      collection(firestore, 'public_properties'),
+      collection(firestore, 'properties'),
+      where('isApproved', '==', true),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );

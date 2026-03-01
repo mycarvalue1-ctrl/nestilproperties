@@ -22,9 +22,8 @@ export default function FavoritesPage() {
     if (!firestore || favoritePropertyIds.length === 0) return null;
     
     // Firestore 'in' query is limited to 30 elements at a time.
-    // Favorites should always point to the public, approved listings.
     return query(
-        collection(firestore, 'public_properties'), 
+        collection(firestore, 'properties'), 
         where(documentId(), 'in', favoritePropertyIds.slice(0, 30))
     );
   }, [firestore, favoritePropertyIds]);

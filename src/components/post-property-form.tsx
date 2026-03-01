@@ -47,7 +47,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
 import { Skeleton } from './ui/skeleton';
@@ -153,8 +153,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [propertyId, setPropertyId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
@@ -222,169 +221,111 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   }, [watchedPrice, watchedArea, watchedPlotArea]);
 
 
-  // This new effect syncs the form's location TO the global state (localStorage)
-  useEffect(() => {
-    const updateGlobalFromForm = () => {
-      if (!watchedCity || !watchedLocality) {
-        return;
-      }
-      
-      try {
-        const locationJson = localStorage.getItem('userLocation');
-        const currentLocation = locationJson ? JSON.parse(locationJson) : {};
-
-        const newLocation = {
-          state: form.getValues('state') || 'Andhra Pradesh',
-          district: watchedCity,
-          locality: watchedLocality,
-        };
-
-        if (newLocation.district !== currentLocation.district || newLocation.locality !== currentLocation.locality) {
-          localStorage.setItem('userLocation', JSON.stringify(newLocation));
-          window.dispatchEvent(new CustomEvent('location-changed'));
-        }
-      } catch (error) {
-        console.error("Could not update global location from form input", error);
-      }
-    };
-    
-    updateGlobalFromForm();
-  }, [watchedCity, watchedLocality, form]);
-
-
-  // This existing effect syncs the global state FROM localStorage to the form
   useEffect(() => {
     const updateLocationFields = () => {
-      if (isEditing) return; // Don't override form values when editing
+      if (editId) return; 
       try {
         const locationJson = localStorage.getItem('userLocation');
         if (locationJson) {
           const savedLocation = JSON.parse(locationJson);
-          if (savedLocation.state) {
-            form.setValue('state', savedLocation.state, { shouldValidate: true });
-          }
-          if (savedLocation.district) {
-            form.setValue('city', savedLocation.district, { shouldValidate: true });
-          }
-          if (savedLocation.locality) {
-            form.setValue('locality', savedLocation.locality, { shouldValidate: true });
-          }
+          if (savedLocation.state) form.setValue('state', savedLocation.state, { shouldValidate: true });
+          if (savedLocation.district) form.setValue('city', savedLocation.district, { shouldValidate: true });
+          if (savedLocation.locality) form.setValue('locality', savedLocation.locality, { shouldValidate: true });
         }
-      } catch (error) {
-        console.error("Could not parse location from localStorage", error);
-      }
+      } catch (error) { console.error("Could not parse location from localStorage", error); }
     };
-
-    // Run once on mount to get initial location
     updateLocationFields();
-
-    // Listen for custom event when location is changed elsewhere
     window.addEventListener('location-changed', updateLocationFields);
-
-    // Cleanup: remove event listener when component unmounts
-    return () => {
-      window.removeEventListener('location-changed', updateLocationFields);
-    };
-  }, [form, isEditing]);
+    return () => window.removeEventListener('location-changed', updateLocationFields);
+  }, [form, editId]);
   
     useEffect(() => {
         if (!isUserLoading && !user) {
-            toast({
-                variant: 'destructive',
-                title: 'Authentication Required',
-                description: 'You must be logged in to post or edit a property.',
-            });
+            toast({ variant: 'destructive', title: 'Authentication Required', description: 'You must be logged in to post or edit a property.' });
             router.push('/user-login');
         }
     }, [isUserLoading, user, router, toast]);
 
   useEffect(() => {
-    if (editId && firestore && user) {
-        setIsEditing(true);
-        setPropertyId(editId);
-        const fetchPropertyData = async () => {
-            const userPropDocRef = doc(firestore, 'user_properties', user.uid, editId);
+    async function fetchPropertyData() {
+        if (editId && firestore && user) {
+            setIsLoading(true);
+            const propDocRef = doc(firestore, 'properties', editId);
             const privateDocRef = doc(firestore, 'propertyPrivateDetails', editId);
 
-            const [userPropDocSnap, privateDocSnap] = await Promise.all([
-                getDoc(userPropDocRef),
-                getDoc(privateDocRef),
-            ]);
+            try {
+                const [propDocSnap, privateDocSnap] = await Promise.all([getDoc(propDocRef), getDoc(privateDocRef)]);
 
-            if (userPropDocSnap.exists()) {
-                const data = userPropDocSnap.data();
-                if (data.ownerId !== user.uid) {
-                    toast({ variant: 'destructive', title: 'Unauthorized', description: "You don't have permission to edit this property." });
+                if (propDocSnap.exists()) {
+                    const data = propDocSnap.data();
+                    if (data.ownerId !== user.uid) {
+                        toast({ variant: 'destructive', title: 'Unauthorized', description: "You don't have permission to edit this property." });
+                        router.push('/dashboard/my-properties');
+                        return;
+                    }
+                    const privateData = privateDocSnap.exists() ? privateDocSnap.data() : null;
+
+                    form.reset({
+                        propertyType: data.propertyType,
+                        listingFor: data.listingFor,
+                        title: data.title,
+                        description: data.description,
+                        state: data.state || 'Andhra Pradesh',
+                        city: data.city,
+                        locality: data.address,
+                        pincode: data.pincode,
+                        googleMapsLink: data.googleMapsLink,
+                        price: data.price,
+                        priceOnRequest: data.priceOnRequest || false,
+                        negotiable: data.negotiable ? 'Yes' : 'No',
+                        maintenance: data.maintenance,
+                        deposit: data.deposit,
+                        availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
+                        preferredTenants: data.preferredTenants,
+                        visitAvailability: data.visitAvailability,
+                        amenities: data.amenities,
+                        nonVegAllowed: data.nonVegAllowed,
+                        vehicleParking: data.vehicleParking,
+                        existingPhotos: data.photos,
+                        photos: [],
+                        ownerName: privateData?.name || '',
+                        mobile: privateData?.phone || '',
+                        whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
+                        postedBy: data.postedByType,
+                        details: {
+                            bhk: data.bhk,
+                            bathrooms: String(data.baths || ''),
+                            floor: data.floor,
+                            totalFloors: data.totalFloors,
+                            area: data.areaSqFt,
+                            facing: data.facing,
+                            age: data.age,
+                            furnishing: data.furnishing,
+                            plotArea: data.plotArea,
+                            roadWidth: data.roadWidth,
+                            approved: data.dtcpApproved ? 'Yes' : 'No',
+                        },
+                    });
+                } else {
+                    toast({ variant: 'destructive', title: 'Not Found', description: 'Property not found.' });
                     router.push('/dashboard/my-properties');
-                    return;
                 }
-
-                const privateData = privateDocSnap.exists() ? privateDocSnap.data() : null;
-
-                form.reset({
-                    propertyType: data.propertyType,
-                    listingFor: data.listingFor,
-                    title: data.title,
-                    description: data.description,
-                    state: data.state || 'Andhra Pradesh',
-                    city: data.city,
-                    locality: data.address, // map address back to locality
-                    pincode: data.pincode,
-                    googleMapsLink: data.googleMapsLink,
-                    price: data.price,
-                    priceOnRequest: data.priceOnRequest || false,
-                    negotiable: data.negotiable ? 'Yes' : 'No',
-                    maintenance: data.maintenance,
-                    deposit: data.deposit,
-                    availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
-                    preferredTenants: data.preferredTenants,
-                    visitAvailability: data.visitAvailability,
-                    amenities: data.amenities,
-                    nonVegAllowed: data.nonVegAllowed,
-                    vehicleParking: data.vehicleParking,
-                    existingPhotos: data.photos,
-                    photos: [],
-                    ownerName: privateData?.name || '',
-                    mobile: privateData?.phone || '',
-                    whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
-                    postedBy: data.postedByType,
-                    details: {
-                        bhk: data.bhk,
-                        bathrooms: String(data.baths || ''),
-                        floor: data.floor,
-                        totalFloors: data.totalFloors,
-                        area: data.areaSqFt,
-                        facing: data.facing,
-                        age: data.age,
-                        furnishing: data.furnishing,
-                        plotArea: data.plotArea,
-                        roadWidth: data.roadWidth,
-                        approved: data.dtcpApproved ? 'Yes' : 'No',
-                    },
-                });
-            } else {
-                toast({ variant: 'destructive', title: 'Not Found', description: 'Property not found.' });
-                router.push('/dashboard/my-properties');
+            } catch (error) {
+                console.error("Error fetching property data: ", error);
+                toast({ variant: 'destructive', title: 'Error', description: "Could not load property data."});
+            } finally {
+                setIsLoading(false);
             }
-        };
-        fetchPropertyData();
+        } else {
+            setIsLoading(false);
+        }
     }
+    fetchPropertyData();
   }, [editId, firestore, user, form, router, toast]);
 
-  const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(true);
-  };
-  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-  };
-  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-  };
+  const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
+  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); };
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>, field: any) => {
       e.preventDefault();
       e.stopPropagation();
@@ -393,22 +334,13 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
           const filesArray = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
           if (filesArray.length === 0) {
-              toast({
-                  variant: "destructive",
-                  title: "Invalid file type",
-                  description: "Please upload only image files.",
-              });
+              toast({ variant: "destructive", title: "Invalid file type", description: "Please upload only image files." });
               return;
           }
-          
           const currentFiles = field.value || [];
           const currentExisting = form.getValues('existingPhotos') || [];
           if (currentFiles.length + currentExisting.length + filesArray.length > 10) {
-              toast({
-                  variant: "destructive",
-                  title: "Upload limit exceeded",
-                  description: "You can upload a maximum of 10 photos.",
-              });
+              toast({ variant: "destructive", title: "Upload limit exceeded", description: "You can upload a maximum of 10 photos." });
           } else {
               field.onChange([...currentFiles, ...filesArray]);
           }
@@ -416,196 +348,101 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       }
   };
 
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user || !firestore) {
-      toast({
-        variant: "destructive",
-        title: "Authentication Error",
-        description: "You must be logged in to post a property.",
-      });
+      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to post a property." });
       router.push('/user-login');
       return;
     }
-    
     setIsSubmitting(true);
 
     let uploadedPhotoURLs: string[] = [];
     try {
       if (values.photos && values.photos.length > 0) {
-        
         const imagekit = new ImageKit({
             publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
             urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
         });
-
-        const uploadPromises = values.photos.map(async (file) => {
-          const authRes = await fetch('/api/imagekit/auth');
-          if (!authRes.ok) {
-              throw new Error(`Failed to authenticate ImageKit for ${file.name}.`);
-          }
-          const authParams = await authRes.json();
-          
-          return imagekit.upload({
-            file: file,
-            fileName: file.name,
-            ...authParams,
-            folder: `/nestil/properties/${user.uid}/`
-          });
-        });
-        
+        const authRes = await fetch('/api/imagekit/auth');
+        if (!authRes.ok) throw new Error('Failed to authenticate with ImageKit.');
+        const authParams = await authRes.json();
+        const uploadPromises = values.photos.map(file => imagekit.upload({ file, fileName: file.name, ...authParams, folder: `/nestil/properties/${user.uid}/` }));
         const results = await Promise.all(uploadPromises);
         uploadedPhotoURLs = results.map(res => res.url);
       }
     } catch(uploadError: any) {
         console.error('Error uploading images: ', uploadError);
-        toast({
-            variant: 'destructive',
-            title: 'Image Upload Failed',
-            description: uploadError.message || 'Could not upload your photos. Please try again.',
-        });
+        toast({ variant: 'destructive', title: 'Image Upload Failed', description: uploadError.message || 'Could not upload photos.' });
         setIsSubmitting(false);
         return;
     }
       
     const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
-
-    let bhkValue = values.details.bhk || '';
-    let bedsValue = parseInt(bhkValue, 10) || 0;
-
-    if (values.propertyType.includes('BHK Flat')) {
-        bhkValue = values.propertyType.replace(' Flat', '');
-        bedsValue = parseInt(bhkValue, 10);
-    } else if (values.propertyType === 'Studio Apartment') {
-        bhkValue = 'Studio';
-        bedsValue = 1;
-    }
-
-    const userPropertyData = {
-      title: values.title,
-      description: values.description,
-      propertyType: values.propertyType,
-      type: values.propertyType,
-      listingFor: values.listingFor,
-      status: `For ${values.listingFor}`,
-      city: values.city,
-      address: values.locality,
-      pincode: values.pincode,
-      googleMapsLink: values.googleMapsLink,
-      price: values.priceOnRequest ? 0 : values.price,
-      priceOnRequest: values.priceOnRequest,
-      negotiable: values.negotiable === 'Yes',
-      maintenance: values.maintenance,
-      deposit: values.deposit,
-      availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
-      preferredTenants: values.preferredTenants,
-      visitAvailability: values.visitAvailability,
-      areaSqFt: values.details.area || values.details.plotArea || 0,
-      bhk: bhkValue,
-      beds: bedsValue,
-      baths: Number(values.details.bathrooms?.charAt(0) || '0'),
-      furnishing: values.details.furnishing,
-      floor: values.details.floor,
-      totalFloors: values.details.totalFloors,
-      facing: values.details.facing,
-      age: values.details.age,
-      plotArea: values.details.plotArea,
-      roadWidth: values.details.roadWidth,
-      dtcpApproved: values.details.approved === 'Yes',
-      amenities: values.amenities || [],
-      nonVegAllowed: values.nonVegAllowed,
-      vehicleParking: values.vehicleParking,
-      photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
+    const propertyData = {
+      // ... (map all form values to the property data structure)
       ownerId: user.uid,
+      title: values.title, description: values.description, propertyType: values.propertyType, type: values.propertyType,
+      listingFor: values.listingFor, status: `For ${values.listingFor}`, city: values.city, address: values.locality,
+      pincode: values.pincode, googleMapsLink: values.googleMapsLink, price: values.priceOnRequest ? 0 : values.price,
+      priceOnRequest: values.priceOnRequest, negotiable: values.negotiable === 'Yes', maintenance: values.maintenance,
+      deposit: values.deposit, availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
+      preferredTenants: values.preferredTenants, visitAvailability: values.visitAvailability,
+      areaSqFt: values.details.area || values.details.plotArea || 0,
+      bhk: values.propertyType.includes('BHK') ? values.propertyType.replace(' Flat', '') : values.details.bhk,
+      beds: parseInt(values.propertyType.charAt(0)) || parseInt(values.details.bhk.charAt(0)) || 0,
+      baths: Number(values.details.bathrooms?.charAt(0) || '0'), furnishing: values.details.furnishing,
+      floor: values.details.floor, totalFloors: values.details.totalFloors, facing: values.details.facing, age: values.details.age,
+      plotArea: values.details.plotArea, roadWidth: values.details.roadWidth, dtcpApproved: values.details.approved === 'Yes',
+      amenities: values.amenities || [], nonVegAllowed: values.nonVegAllowed, vehicleParking: values.vehicleParking,
+      photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
       postedByType: values.postedBy,
       updatedAt: serverTimestamp(),
+      ...(editId ? {} : { 
+          postedAt: serverTimestamp(), 
+          dateAdded: new Date().toISOString(), 
+          isNew: true, 
+          isFeatured: false, 
+          isUrgent: false, 
+          nearbyPlaces: [] 
+      }),
+      isApproved: false,
+      listingStatus: 'pending',
     };
 
     const privateDocData = {
-        name: values.ownerName,
-        phone: values.mobile,
-        isAgent: values.postedBy === 'Agent',
-        verified: true, // Assuming verification
-        whatsAppAvailable: values.whatsAppAvailable,
+        name: values.ownerName, phone: values.mobile, isAgent: values.postedBy === 'Agent',
+        verified: true, whatsAppAvailable: values.whatsAppAvailable,
     };
     
-    const batch = writeBatch(firestore);
-
-    if (isEditing && propertyId) {
-      const userPropDocRef = doc(firestore, 'user_properties', user.uid, propertyId);
-      const publicPropRef = doc(firestore, 'public_properties', propertyId);
-      batch.update(userPropDocRef, {
-          ...userPropertyData,
-          listingStatus: 'pending', // Reset status on edit to require re-approval
-          isApproved: false,
-      });
-      batch.delete(publicPropRef); // Remove from public view upon edit
-
-      const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
-      batch.set(privateDocRef, privateDocData, { merge: true });
-    } else {
-      const userPropsCollectionRef = collection(firestore, 'user_properties');
-      const newUserPropDocRef = doc(userPropsCollectionRef); // Create a reference with a new ID
-
-      batch.set(newUserPropDocRef, {
-          ...userPropertyData,
-          id: newUserPropDocRef.id,
-          postedAt: serverTimestamp(),
-          dateAdded: new Date().toISOString(),
-          isApproved: false,
-          listingStatus: 'pending',
-          isFeatured: false,
-          isNew: true,
-          isUrgent: false,
-          nearbyPlaces: [],
-      });
-
-      const privateDocRef = doc(firestore, 'propertyPrivateDetails', newUserPropDocRef.id);
-      batch.set(privateDocRef, privateDocData);
-    }
-
-    batch.commit()
-      .then(() => {
-        toast({ 
-          title: isEditing ? "Update Successful!" : "Submission Successful!", 
-          description: isEditing ? "Your property has been updated and sent for re-approval." : "Your property has been submitted for approval."
-        });
+    try {
+        if (editId) {
+            const propRef = doc(firestore, 'properties', editId);
+            await updateDoc(propRef, propertyData);
+            const privateRef = doc(firestore, 'propertyPrivateDetails', editId);
+            await updateDoc(privateRef, privateDocData);
+        } else {
+            const newPropRef = await addDoc(collection(firestore, 'properties'), propertyData);
+            const privateRef = doc(firestore, 'propertyPrivateDetails', newPropRef.id);
+            await updateDoc(doc(firestore, 'properties', newPropRef.id), { id: newPropRef.id });
+            await updateDoc(privateRef, privateDocData);
+        }
+        toast({ title: editId ? "Update Successful!" : "Submission Successful!", description: "Your property has been submitted for approval."});
         form.reset();
         router.push('/dashboard/my-properties');
-      })
-      .catch((error) => {
+    } catch (error) {
         console.error('Error processing property: ', error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: isEditing && propertyId ? `user_properties/${user.uid}/${propertyId}` : `user_properties`,
-          operation: isEditing ? 'update' : 'create',
-          requestResourceData: { ...userPropertyData, ...privateDocData },
+          path: editId ? `properties/${editId}` : `properties`,
+          operation: editId ? 'update' : 'create',
+          requestResourceData: { ...propertyData, ...privateDocData },
         }));
-      })
-      .finally(() => {
+    } finally {
         setIsSubmitting(false);
-      });
+    }
   }
   
-  const handleMapClick = () => {
-    const city = form.getValues('city');
-    const locality = form.getValues('locality');
-    const query = encodeURIComponent(`${locality}, ${city}, ${form.getValues('state')}`);
-    const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
-    window.open(url, '_blank');
-  };
-
-    if (isUserLoading || !user) {
-        return (
-            <div className="container py-12 max-w-4xl mx-auto space-y-8">
-                <div className="text-center space-y-2">
-                    <Skeleton className="h-9 w-72 mx-auto" />
-                    <Skeleton className="h-5 w-96 mx-auto" />
-                </div>
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-80 w-full" />
-            </div>
-        );
+    if (isUserLoading || isLoading) {
+        return <FormSkeleton />;
     }
 
   return (
@@ -613,8 +450,8 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto">
           <div className="text-center">
-            <h1 className="text-3xl font-bold font-headline">{isEditing ? 'Edit Property' : 'Post a New Property'}</h1>
-            <p className="text-muted-foreground mt-2">{isEditing ? 'Update the details of your property.' : 'Fill in the details below to put your property on the market.'}</p>
+            <h1 className="text-3xl font-bold font-headline">{editId ? 'Edit Property' : 'Post a New Property'}</h1>
+            <p className="text-muted-foreground mt-2">{editId ? 'Update the details of your property.' : 'Fill in the details below to put your property on the market.'}</p>
           </div>
 
           <FormSection title="Basic Information" description="Start with the essential details about your property.">
@@ -1070,10 +907,10 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             {isSubmitting ? (
               <>
                 <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-                {isEditing ? 'Updating...' : 'Submitting...'}
+                {editId ? 'Updating...' : 'Submitting...'}
               </>
             ) : (
-                isEditing ? 'Update Property' : 'Submit for Approval'
+                editId ? 'Update Property' : 'Submit for Approval'
             )}
           </Button>
         </form>

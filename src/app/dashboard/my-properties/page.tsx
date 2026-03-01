@@ -1,3 +1,4 @@
+
 'use client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -7,16 +8,13 @@ import { Edit, MoreVertical, Trash, EyeOff, Eye, LoaderCircle, Download, Buildin
 import Image from "next/image";
 import Link from "next/link";
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, where, doc, deleteDoc, updateDoc, getDoc, writeBatch } from "firebase/firestore";
-import type { Property } from '@/lib/types';
+import { collection, query, where, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import type { Property, PropertyOwner } from '@/lib/types';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useToast } from "@/hooks/use-toast";
-
-// This type is defined inline in the original file, so we do the same
-type PropertyOwner = { name: string; phone: string; isAgent: boolean; };
 
 // PDF Template Component - This will be rendered off-screen
 const PropertyPdfCard = ({ property, owner, innerRef }: { property: Property | null, owner: PropertyOwner | null, innerRef: React.Ref<HTMLDivElement> }) => {
@@ -147,7 +145,7 @@ export default function MyPropertiesPage() {
 
   const userPropertiesQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, 'user_properties'), where('ownerId', '==', user.uid));
+    return query(collection(firestore, 'properties'), where('ownerId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: userProperties, isLoading } = useCollection<Property>(userPropertiesQuery);
@@ -199,23 +197,19 @@ export default function MyPropertiesPage() {
     if (!firestore || !user) return;
     if (!window.confirm("Are you sure you want to permanently delete this property? This action cannot be undone.")) return;
 
-    const userPropRef = doc(firestore, 'user_properties', user.uid, propertyId);
-    const publicPropRef = doc(firestore, 'public_properties', propertyId);
+    const propRef = doc(firestore, 'properties', propertyId);
     const privateDetailsRef = doc(firestore, 'propertyPrivateDetails', propertyId);
-    const batch = writeBatch(firestore);
-
-    batch.delete(userPropRef);
-    batch.delete(publicPropRef);
-    batch.delete(privateDetailsRef);
     
-    batch.commit()
+    // In a real app, you might use a transaction or a batch write.
+    deleteDoc(propRef)
       .then(() => {
+          deleteDoc(privateDetailsRef); // Also delete private details
           toast({ title: "Property Deleted", description: "The property has been permanently removed." });
       })
       .catch((error) => {
         console.error("Error deleting property:", error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: userPropRef.path,
+          path: propRef.path,
           operation: 'delete',
         }));
       });
@@ -226,15 +220,10 @@ export default function MyPropertiesPage() {
       
       const isRentedOrSold = property.listingStatus === 'sold' || property.listingStatus === 'rented';
       const newStatus = isRentedOrSold ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
-      const docRef = doc(firestore, 'user_properties', user.uid, property.id);
-      const publicDocRef = doc(firestore, 'public_properties', property.id);
+      const docRef = doc(firestore, 'properties', property.id);
       const data = { listingStatus: newStatus };
       
-      const batch = writeBatch(firestore);
-      batch.update(docRef, data);
-      batch.update(publicDocRef, data); // Also update public status
-
-      batch.commit()
+      updateDoc(docRef, data)
         .then(() => toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` }))
         .catch((error) => {
           console.error("Error updating status:", error);

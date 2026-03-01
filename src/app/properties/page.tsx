@@ -55,7 +55,7 @@ function PropertyList() {
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
-    let q: Query<Property> = query(collection(firestore, 'public_properties')) as Query<Property>;
+    let q: Query<Property> = query(collection(firestore, 'properties'), where('isApproved', '==', true)) as Query<Property>;
 
     // Transaction filter
     const transaction = searchParams.get('transaction');
@@ -90,8 +90,6 @@ function PropertyList() {
         break;
       case 'newest':
       default:
-        // Note: if a price range filter is used, this may require a composite index in Firestore.
-        // The resulting Firestore error is informative and directs users to create it.
         q = query(q, orderBy('dateAdded', 'desc'));
         break;
     }
