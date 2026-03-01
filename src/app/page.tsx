@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { PropertyCard, PropertyCardSkeleton } from '@/components/property-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building, Home as HomeIcon, Search, Trees } from 'lucide-react';
+import { Building, Home as HomeIcon, Search, Trees, User } from 'lucide-react';
 import Link from 'next/link';
 import { locationData } from '@/lib/locations';
 import {
@@ -15,7 +15,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -23,9 +23,11 @@ import { useFavorites } from '@/hooks/use-favorites';
 
 export default function Home() {
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
   const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
 
   const recentPropertiesQuery = useMemoFirebase(() => {
+    if (isUserLoading || !user) return null; // Do not query if auth is loading or user is not logged in
     if (!firestore) return null;
 
     return query(
@@ -34,11 +36,11 @@ export default function Home() {
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
-  }, [firestore]);
+  }, [firestore, user, isUserLoading]);
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
   
-  const isLoading = isLoadingProperties || isLoadingFavorites;
+  const isLoading = isUserLoading || isLoadingProperties || isLoadingFavorites;
 
 
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
@@ -108,32 +110,40 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {isLoading ? (
-              <>
-                <PropertyCardSkeleton />
-                <PropertyCardSkeleton />
-                <PropertyCardSkeleton />
-                <PropertyCardSkeleton />
-                <PropertyCardSkeleton />
-                <PropertyCardSkeleton />
-              </>
-            ) : (
-              recentProperties?.map((prop) => (
-                <PropertyCard
-                  key={prop.id}
-                  property={prop}
-                  isFavorited={favoriteIds.has(prop.id)}
-                  onToggleFavorite={() => toggleFavorite(prop.id, favoriteIds.has(prop.id))}
-                />
-              ))
-            )}
-          </div>
-          <div className="text-center mt-12">
-            <Button size="lg" asChild>
-              <Link href="/properties">View All Properties</Link>
-            </Button>
-          </div>
+          
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[...Array(6)].map((_, i) => <PropertyCardSkeleton key={i} />)}
+            </div>
+          ) : !user ? (
+             <div className="text-center py-16 border-dashed border-2 rounded-lg">
+                <User className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h2 className="text-xl font-semibold mt-4">Login to View Listings</h2>
+                <p className="text-muted-foreground mt-2">Please log in or create an account to browse properties.</p>
+                <Button asChild className="mt-4">
+                    <Link href="/user-login">Login / Sign Up</Link>
+                </Button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {recentProperties?.map((prop) => (
+                  <PropertyCard
+                    key={prop.id}
+                    property={prop}
+                    isFavorited={favoriteIds.has(prop.id)}
+                    onToggleFavorite={() => toggleFavorite(prop.id, favoriteIds.has(prop.id))}
+                  />
+                ))}
+              </div>
+              <div className="text-center mt-12">
+                <Button size="lg" asChild>
+                  <Link href="/properties">View All Properties</Link>
+                </Button>
+              </div>
+            </>
+          )}
+
         </div>
       </section>
 

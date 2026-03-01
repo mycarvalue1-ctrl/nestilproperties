@@ -15,27 +15,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, Search } from 'lucide-react';
+import { Filter, Search, User } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
+import Link from 'next/link';
 
 
 function PropertyList() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-
+  const { user, isUserLoading } = useUser();
   const types = searchParams.getAll('type');
 
   const firestore = useFirestore();
   const { favoriteIds, toggleFavorite } = useFavorites();
 
   const propertiesQuery = useMemoFirebase(() => {
+    if (isUserLoading || !user) return null;
     if (!firestore) return null;
 
     const q = collection(firestore, 'properties');
@@ -45,9 +45,9 @@ function PropertyList() {
     ];
 
     return query(q, ...constraints);
-  }, [firestore]);
+  }, [firestore, user, isUserLoading]);
 
-  const { data: serverFilteredProperties, isLoading } = useCollection<Property>(propertiesQuery);
+  const { data: serverFilteredProperties, isLoading: isLoadingProperties } = useCollection<Property>(propertiesQuery);
   
   const filteredProperties = useMemo(() => {
     if (!serverFilteredProperties) return [];
@@ -74,6 +74,8 @@ function PropertyList() {
     });
   }, [serverFilteredProperties, types]);
 
+  const isLoading = isUserLoading || isLoadingProperties;
+
   if (isLoading) {
     return (
       <div className="flex-1">
@@ -85,6 +87,19 @@ function PropertyList() {
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+     return (
+        <div className="text-center py-16 border-dashed border-2 rounded-lg mt-4 col-span-full">
+            <User className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mt-4">Login to View Properties</h2>
+            <p className="text-muted-foreground mt-2">Please log in or create an account to browse our listings.</p>
+            <Button asChild className="mt-4">
+                <Link href="/user-login">Login / Sign Up</Link>
+            </Button>
+        </div>
+     )
   }
 
   return (
