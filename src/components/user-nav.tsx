@@ -16,13 +16,14 @@ import { signOut, sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, LayoutGrid, User as UserIcon, MailWarning, MailCheck } from 'lucide-react';
+import { LogOut, LayoutGrid, User as UserIcon, MailWarning, Shield } from 'lucide-react';
 
 export function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const isAdmin = user?.email === 'helpnestil@gmail.com';
 
   const handleLogout = async () => {
     if (auth) {
@@ -82,6 +83,19 @@ export function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+
+        {isAdmin && (
+          <>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/admin">
+                <Shield className="mr-2 h-4 w-4" />
+                <span>Admin</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
         {!user.emailVerified && (
           <>
             <DropdownMenuItem className="cursor-pointer" onClick={handleResendVerification}>
