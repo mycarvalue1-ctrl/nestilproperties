@@ -39,12 +39,18 @@ service cloud.firestore {
     }
 
     // =================================
-    // Properties Collection Rules (Simplified for Development)
+    // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // Any authenticated user can read and write to properties during development.
-      // This is to prevent blocking permission errors while building features.
-      allow read, write: if isSignedIn();
+      // ✅ Anyone (even logged out users) can read
+      allow get, list: if true;
+
+      // ✅ Only signed-in users can create
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid;
+
+      // ✅ Only owner or admin can update/delete
+      allow update, delete: if isOwner(resource.data.ownerId) || isAdmin();
     }
     
     // =================================
