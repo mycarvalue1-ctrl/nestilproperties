@@ -2,18 +2,25 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { properties } from "@/lib/data"; // Still using mock properties for now
-import { List, PlusCircle, CheckCircle } from "lucide-react";
+import { List, PlusCircle, CheckCircle, LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import type { Property } from '@/lib/types';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function DashboardPage() {
   const { user } = useUser(); // Use the hook to get the logged-in user
+  const firestore = useFirestore();
 
-  // The rest of the logic can remain the same if we're still using mock data for properties
-  // When Firestore is connected, this will need to be updated to fetch real properties.
-  const userProperties = properties.filter(p => p.owner.id === user?.uid);
-  const activeListings = userProperties.filter(p => p.listingStatus === 'approved').length;
+  const userPropertiesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'properties'), where('ownerId', '==', user.uid));
+  }, [user, firestore]);
+
+  const { data: userProperties, isLoading } = useCollection<Property>(userPropertiesQuery);
+
+  const totalProperties = userProperties?.length || 0;
+  const activeListings = userProperties?.filter(p => p.listingStatus === 'approved').length || 0;
 
   return (
     <div>
@@ -25,7 +32,7 @@ export default function DashboardPage() {
             <List className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{userProperties.length}</div>
+            <div className="text-2xl font-bold">{isLoading ? <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" /> : totalProperties}</div>
           </CardContent>
         </Card>
         <Card>
@@ -34,7 +41,7 @@ export default function DashboardPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeListings}</div>
+            <div className="text-2xl font-bold">{isLoading ? <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" /> : activeListings}</div>
           </CardContent>
         </Card>
         <Card className="flex flex-col items-center justify-center bg-secondary">

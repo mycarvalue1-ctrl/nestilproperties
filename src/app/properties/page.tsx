@@ -30,7 +30,6 @@ function PropertyList() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const status = searchParams.get('status');
   const types = searchParams.getAll('type');
 
   const firestore = useFirestore();
@@ -41,16 +40,12 @@ function PropertyList() {
 
     const q = collection(firestore, 'properties');
     const constraints: any[] = [
-        where('isApproved', '==', true),
+        where('listingStatus', '==', 'approved'),
         orderBy('dateAdded', 'desc')
     ];
 
-    if (status) {
-      constraints.push(where('status', '==', status));
-    }
-
     return query(q, ...constraints);
-  }, [firestore, status]);
+  }, [firestore]);
 
   const { data: serverFilteredProperties, isLoading } = useCollection<Property>(propertiesQuery);
   
@@ -63,8 +58,6 @@ function PropertyList() {
       return serverFilteredProperties;
     }
 
-    // This client-side filter is still needed because the 'type' field in the database
-    // is more specific (e.g., "2 BHK Flat") than the filter categories (e.g., "Apartment").
     return serverFilteredProperties.filter(p => {
       if (!p.type) return false;
       const propTypeLower = p.type.toLowerCase();

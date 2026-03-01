@@ -7,7 +7,7 @@ import { Edit, MoreVertical, Trash, EyeOff, Eye, LoaderCircle, Download, Buildin
 import Image from "next/image";
 import Link from "next/link";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query, where, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import type { Property } from '@/lib/types';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
@@ -182,6 +182,34 @@ export default function MyPropertiesPage() {
     setPdfProperty(property);
   }
 
+  const handleDeleteProperty = async (propertyId: string) => {
+    if (!firestore) return;
+    if (!window.confirm("Are you sure you want to permanently delete this property? This action cannot be undone.")) return;
+
+    try {
+        await deleteDoc(doc(firestore, 'properties', propertyId));
+        toast({ title: "Property Deleted", description: "The property has been permanently removed." });
+    } catch (error) {
+        console.error("Error deleting property:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the property." });
+    }
+  };
+
+  const handleToggleAvailability = async (property: Property) => {
+      if (!firestore) return;
+      
+      const isRentedOrSold = property.listingStatus === 'sold' || property.listingStatus === 'rented';
+      const newStatus = isRentedOrSold ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
+      
+      try {
+          await updateDoc(doc(firestore, 'properties', property.id), { listingStatus: newStatus });
+          toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` });
+      } catch (error) {
+          console.error("Error updating status:", error);
+          toast({ variant: "destructive", title: "Update Failed", description: "Could not update the property status." });
+      }
+  };
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'approved': return 'default';
@@ -238,7 +266,7 @@ export default function MyPropertiesPage() {
                             <Edit className="mr-2 h-4 w-4" /> Edit
                         </Link>
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:border-red-500">
+                    <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:border-red-500" onClick={() => handleDeleteProperty(prop.id)}>
                         <Trash className="mr-2 h-4 w-4" /> Delete
                     </Button>
                  </div>
@@ -250,7 +278,7 @@ export default function MyPropertiesPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleToggleAvailability(prop)} className="cursor-pointer">
                         {prop.listingStatus === 'rented' || prop.listingStatus === 'sold' ? 
                             <><Eye className="mr-2 h-4 w-4" /> Mark as Available</> :
                             <><EyeOff className="mr-2 h-4 w-4" /> Mark as Rented/Sold</>

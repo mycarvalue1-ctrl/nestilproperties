@@ -46,17 +46,17 @@ service cloud.firestore {
       allow read, write: if isAdmin();
       
       // --- OWNERS ---
-      // An owner can read their own property documents.
-      allow get, list, update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
+      // An owner can read, update, or delete their own property documents.
+      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
       
       // An owner can create a property for themselves.
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
 
       // --- PUBLIC ---
-      // Any user (including unauthenticated visitors) can read a property if it is approved.
-      // This rule allows the public homepage and property search to function correctly
-      // as long as the client query includes `where('isApproved', '==', true)`.
-      allow get, list: if resource.data.isApproved == true;
+      // Any user (including unauthenticated visitors) can read a property if its listing status is 'approved'.
+      // This rule allows public searches to function correctly as long as the client query
+      // includes `where('listingStatus', '==', 'approved')`.
+      allow get, list: if resource.data.listingStatus == 'approved';
     }
 
 

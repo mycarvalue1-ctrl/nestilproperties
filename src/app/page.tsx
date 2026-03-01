@@ -25,15 +25,12 @@ export default function Home() {
   const firestore = useFirestore();
   const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
 
-  // This query for public properties does not need to wait for authentication.
-  // By creating it immediately with the 'isApproved' filter, we avoid the race condition
-  // that was causing the permissions error.
   const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
     return query(
       collection(firestore, 'properties'),
-      where('isApproved', '==', true),
+      where('listingStatus', '==', 'approved'),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
@@ -41,8 +38,6 @@ export default function Home() {
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
   
-  // The page shows skeletons if properties are loading. The favorite status (heart icon)
-  // will update once authentication is resolved, which is handled by the useFavorites hook.
   const isLoading = isLoadingProperties || isLoadingFavorites;
 
 

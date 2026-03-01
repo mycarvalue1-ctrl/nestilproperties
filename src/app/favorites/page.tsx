@@ -24,7 +24,7 @@ export default function FavoritesPage() {
     return query(
         collection(firestore, 'properties'), 
         where(documentId(), 'in', favoritePropertyIds.slice(0, 30)),
-        where('isApproved', '==', true)
+        where('listingStatus', '==', 'approved')
     );
   }, [firestore, favoritePropertyIds]);
 
