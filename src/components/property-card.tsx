@@ -69,7 +69,7 @@ export function PropertyCard({ property, isFavorited, onToggleFavorite }: Proper
               <Share2 className="h-4 w-4" />
             </Button>
         </div>
-        <div className="absolute top-2 left-2 flex flex-col items-end gap-1 z-20">
+        <div className="absolute top-2 left-2 flex flex-col items-start gap-1 z-20">
             {property.featured && (
                 <Badge variant="default" className="bg-accent text-accent-foreground">Featured</Badge>
             )}
@@ -96,27 +96,27 @@ export function PropertyCard({ property, isFavorited, onToggleFavorite }: Proper
         <div className="flex-grow space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-xl font-bold font-headline text-primary">
-              ₹{new Intl.NumberFormat('en-IN').format(property.price || 0)}
-              {property.status === 'For Rent' && (
+              {property.price > 0 ? `₹${new Intl.NumberFormat('en-IN').format(property.price)}` : 'Price on Request'}
+              {property.listingFor === 'Rent' && property.price > 0 && (
                 <span className="text-sm font-normal text-muted-foreground"> /month</span>
               )}
             </p>
              <Badge variant="secondary" className="capitalize">{property.type}</Badge>
           </div>
           
-          <div className="flex justify-around items-center text-center border-y py-3 text-sm">
-             <div className="flex items-center gap-1.5">
-                <BedDouble className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{property.beds || 'N/A'} <span className="font-normal text-muted-foreground">Beds</span></span>
-             </div>
-              <div className="flex items-center gap-1.5">
-                <Bath className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{property.baths || 'N/A'} <span className="font-normal text-muted-foreground">Baths</span></span>
-             </div>
-              <div className="flex items-center gap-1.5">
-                <Expand className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{property.areaSqFt || 'N/A'} <span className="font-normal text-muted-foreground">sqft</span></span>
-             </div>
+          <div className="flex justify-around items-center text-center border-y py-3">
+              <div className="flex flex-col items-center gap-0.5 w-1/3">
+                <BedDouble className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-sm">{property.bhk || 'N/A'}</span>
+              </div>
+              <div className="flex flex-col items-center gap-0.5 w-1/3 border-x">
+                <Bath className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-sm">{property.baths || 'N/A'} Baths</span>
+              </div>
+              <div className="flex flex-col items-center gap-0.5 w-1/3">
+                <Expand className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-sm">{property.areaSqFt ? property.areaSqFt.toLocaleString('en-IN') : 'N/A'} sqft</span>
+              </div>
           </div>
           
           <div className="text-sm text-muted-foreground">

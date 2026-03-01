@@ -44,12 +44,16 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold">{isLoading ? <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" /> : activeListings}</div>
           </CardContent>
         </Card>
-        <Card className="flex flex-col items-center justify-center bg-secondary">
-           <CardContent className="pt-6">
-            <Button asChild size="lg" variant="accent">
+        <Card>
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Post a New Property</CardTitle>
+            <PlusCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+           <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">List your property for free to reach thousands of potential buyers.</p>
+            <Button asChild className="w-full" variant="accent">
                 <Link href="/post-property">
-                    <PlusCircle className="mr-2 h-5 w-5"/>
-                    Post New Property
+                    Post Property Free
                 </Link>
             </Button>
            </CardContent>
