@@ -433,7 +433,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             const privateRef = doc(firestore, 'propertyPrivateDetails', newPropRef.id);
             await setDoc(privateRef, privateDocData);
         }
-        toast({ title: editId ? "Update Successful!" : "Submission Successful!", description: "Your property has been submitted for approval."});
+        toast({ title: editId ? "Update Successful!" : "Submission Successful!", description: "Your property has been submitted for review. Please allow up to 60 minutes for it to be approved and visible on the site."});
         form.reset();
         router.push(editId ? `/properties/${editId}` : '/dashboard/my-properties');
     } catch (error) {
