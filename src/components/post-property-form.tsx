@@ -46,7 +46,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
@@ -430,8 +430,8 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     
     setIsSubmitting(true);
 
+    let uploadedPhotoURLs: string[] = [];
     try {
-      let uploadedPhotoURLs: string[] = [];
       if (values.photos && values.photos.length > 0) {
         
         const imagekit = new ImageKit({
@@ -457,121 +457,131 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         const results = await Promise.all(uploadPromises);
         uploadedPhotoURLs = results.map(res => res.url);
       }
-      
-      const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
-
-      let bhkValue = values.details.bhk || '';
-      let bedsValue = parseInt(bhkValue, 10) || 0;
-
-      if (values.propertyType.includes('BHK Flat')) {
-          bhkValue = values.propertyType.replace(' Flat', '');
-          bedsValue = parseInt(bhkValue, 10);
-      } else if (values.propertyType === 'Studio Apartment') {
-          bhkValue = 'Studio';
-          bedsValue = 1;
-      }
-
-      const publicDocData = {
-        title: values.title,
-        description: values.description,
-        propertyType: values.propertyType,
-        type: values.propertyType,
-        listingFor: values.listingFor,
-        status: `For ${values.listingFor}`,
-        city: values.city,
-        address: values.locality,
-        pincode: values.pincode,
-        googleMapsLink: values.googleMapsLink,
-        price: values.priceOnRequest ? 0 : values.price,
-        priceOnRequest: values.priceOnRequest,
-        negotiable: values.negotiable === 'Yes',
-        maintenance: values.maintenance,
-        deposit: values.deposit,
-        availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
-        preferredTenants: values.preferredTenants,
-        visitAvailability: values.visitAvailability,
-        areaSqFt: values.details.area || values.details.plotArea || 0,
-        bhk: bhkValue,
-        beds: bedsValue,
-        baths: Number(values.details.bathrooms?.charAt(0) || '0'),
-        furnishing: values.details.furnishing,
-        floor: values.details.floor,
-        totalFloors: values.details.totalFloors,
-        facing: values.details.facing,
-        age: values.details.age,
-        plotArea: values.details.plotArea,
-        roadWidth: values.details.roadWidth,
-        dtcpApproved: values.details.approved === 'Yes',
-        amenities: values.amenities || [],
-        nonVegAllowed: values.nonVegAllowed,
-        vehicleParking: values.vehicleParking,
-        photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
-        ownerId: user.uid,
-        postedByType: values.postedBy,
-        updatedAt: serverTimestamp(),
-      };
-
-      const privateDocData = {
-          ownerName: values.ownerName,
-          ownerPhone: values.mobile,
-          ownerIsAgent: values.postedBy === 'Agent',
-          ownerVerified: true, // Assuming verification,
-          whatsAppAvailable: values.whatsAppAvailable,
-      };
-      
-      if (isEditing && propertyId) {
-        const batch = writeBatch(firestore);
-        const publicDocRef = doc(firestore, 'properties', propertyId);
-        batch.update(publicDocRef, {
-            ...publicDocData,
-            listingStatus: 'pending', // Reset status on edit to require re-approval
-            isApproved: false,
+    } catch(uploadError: any) {
+        console.error('Error uploading images: ', uploadError);
+        toast({
+            variant: 'destructive',
+            title: 'Image Upload Failed',
+            description: uploadError.message || 'Could not upload your photos. Please try again.',
         });
-
-        const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
-        batch.set(privateDocRef, privateDocData, { merge: true });
-
-        await batch.commit();
-        toast({ title: "Update Successful!", description: "Your property has been updated and sent for re-approval." });
-      } else {
-        const publicCollectionRef = collection(firestore, 'properties');
-        const newPublicDocRef = doc(publicCollectionRef); // Create a reference with a new ID
-
-        const batch = writeBatch(firestore);
-
-        batch.set(newPublicDocRef, {
-            ...publicDocData,
-            id: newPublicDocRef.id,
-            postedAt: serverTimestamp(),
-            dateAdded: new Date().toISOString(),
-            isApproved: false,
-            listingStatus: 'pending',
-            isFeatured: false,
-            isNew: true,
-            isUrgent: false,
-            nearbyPlaces: [],
-        });
-
-        const privateDocRef = doc(firestore, 'propertyPrivateDetails', newPublicDocRef.id);
-        batch.set(privateDocRef, privateDocData);
-        
-        await batch.commit();
-        toast({ title: "Submission Successful!", description: "Your property has been submitted for approval." });
-      }
-
-      form.reset();
-      router.push('/dashboard/my-properties');
-
-    } catch (error: any) {
-      console.error('Error processing property: ', error);
-      toast({
-        variant: 'destructive',
-        title: 'Submission Failed',
-        description: error.message || 'An unexpected error occurred while saving your property.',
-      });
-    } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
+        return;
     }
+      
+    const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
+
+    let bhkValue = values.details.bhk || '';
+    let bedsValue = parseInt(bhkValue, 10) || 0;
+
+    if (values.propertyType.includes('BHK Flat')) {
+        bhkValue = values.propertyType.replace(' Flat', '');
+        bedsValue = parseInt(bhkValue, 10);
+    } else if (values.propertyType === 'Studio Apartment') {
+        bhkValue = 'Studio';
+        bedsValue = 1;
+    }
+
+    const publicDocData = {
+      title: values.title,
+      description: values.description,
+      propertyType: values.propertyType,
+      type: values.propertyType,
+      listingFor: values.listingFor,
+      status: `For ${values.listingFor}`,
+      city: values.city,
+      address: values.locality,
+      pincode: values.pincode,
+      googleMapsLink: values.googleMapsLink,
+      price: values.priceOnRequest ? 0 : values.price,
+      priceOnRequest: values.priceOnRequest,
+      negotiable: values.negotiable === 'Yes',
+      maintenance: values.maintenance,
+      deposit: values.deposit,
+      availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
+      preferredTenants: values.preferredTenants,
+      visitAvailability: values.visitAvailability,
+      areaSqFt: values.details.area || values.details.plotArea || 0,
+      bhk: bhkValue,
+      beds: bedsValue,
+      baths: Number(values.details.bathrooms?.charAt(0) || '0'),
+      furnishing: values.details.furnishing,
+      floor: values.details.floor,
+      totalFloors: values.details.totalFloors,
+      facing: values.details.facing,
+      age: values.details.age,
+      plotArea: values.details.plotArea,
+      roadWidth: values.details.roadWidth,
+      dtcpApproved: values.details.approved === 'Yes',
+      amenities: values.amenities || [],
+      nonVegAllowed: values.nonVegAllowed,
+      vehicleParking: values.vehicleParking,
+      photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
+      ownerId: user.uid,
+      postedByType: values.postedBy,
+      updatedAt: serverTimestamp(),
+    };
+
+    const privateDocData = {
+        ownerName: values.ownerName,
+        ownerPhone: values.mobile,
+        ownerIsAgent: values.postedBy === 'Agent',
+        ownerVerified: true, // Assuming verification,
+        whatsAppAvailable: values.whatsAppAvailable,
+    };
+    
+    const batch = writeBatch(firestore);
+
+    if (isEditing && propertyId) {
+      const publicDocRef = doc(firestore, 'properties', propertyId);
+      batch.update(publicDocRef, {
+          ...publicDocData,
+          listingStatus: 'pending', // Reset status on edit to require re-approval
+          isApproved: false,
+      });
+
+      const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
+      batch.set(privateDocRef, privateDocData, { merge: true });
+    } else {
+      const publicCollectionRef = collection(firestore, 'properties');
+      const newPublicDocRef = doc(publicCollectionRef); // Create a reference with a new ID
+
+      batch.set(newPublicDocRef, {
+          ...publicDocData,
+          id: newPublicDocRef.id,
+          postedAt: serverTimestamp(),
+          dateAdded: new Date().toISOString(),
+          isApproved: false,
+          listingStatus: 'pending',
+          isFeatured: false,
+          isNew: true,
+          isUrgent: false,
+          nearbyPlaces: [],
+      });
+
+      const privateDocRef = doc(firestore, 'propertyPrivateDetails', newPublicDocRef.id);
+      batch.set(privateDocRef, privateDocData);
+    }
+
+    batch.commit()
+      .then(() => {
+        toast({ 
+          title: isEditing ? "Update Successful!" : "Submission Successful!", 
+          description: isEditing ? "Your property has been updated and sent for re-approval." : "Your property has been submitted for approval."
+        });
+        form.reset();
+        router.push('/dashboard/my-properties');
+      })
+      .catch((error) => {
+        console.error('Error processing property: ', error);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: isEditing && propertyId ? `properties/${propertyId}` : 'properties',
+          operation: isEditing ? 'update' : 'create',
+          requestResourceData: { ...publicDocData, ...privateDocData },
+        }));
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   }
   
   const handleMapClick = () => {

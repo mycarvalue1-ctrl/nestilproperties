@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
-import type { User as AppUser, Property, PropertyOwner } from "@/lib/types";
+import type { User as AppUser, Property } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -39,6 +39,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+
+// This type is defined inline in the original file, so we do the same
+type PropertyOwner = { name: string; phone: string; isAgent: boolean; };
 
 function AdminSkeleton() {
   return (
@@ -226,7 +229,6 @@ export default function AdminPage() {
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
-    // With the corrected rules, the admin can perform an unfiltered query.
     return collection(firestore, 'properties');
   }, [firestore, isAdmin]);
 
@@ -285,72 +287,106 @@ export default function AdminPage() {
   const usersCount = users?.length || 0;
   const propertiesCount = allProperties?.length || 0;
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = (id: string) => {
     if (!firestore) return;
-    try {
-      await updateDoc(doc(firestore, 'properties', id), { listingStatus: 'approved', isApproved: true });
-      toast({ title: "Property Approved", description: "The listing is now live." });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not approve property.", variant: "destructive" });
-    }
+    const docRef = doc(firestore, 'properties', id);
+    const data = { listingStatus: 'approved', isApproved: true };
+    updateDoc(docRef, data)
+        .then(() => toast({ title: "Property Approved", description: "The listing is now live." }))
+        .catch(error => {
+            console.error("Error approving property:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: data,
+            }));
+        });
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = (id: string) => {
     if (!firestore) return;
-    try {
-      await updateDoc(doc(firestore, 'properties', id), { listingStatus: 'rejected', isApproved: false });
-      toast({ title: "Property Rejected" });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not reject property.", variant: "destructive" });
-    }
+    const docRef = doc(firestore, 'properties', id);
+    const data = { listingStatus: 'rejected', isApproved: false };
+    updateDoc(docRef, data)
+        .then(() => toast({ title: "Property Rejected" }))
+        .catch(error => {
+            console.error("Error rejecting property:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: data,
+            }));
+        });
   };
 
-  const handleBlockUser = async (userId: string, isCurrentlyBanned: boolean) => {
+  const handleBlockUser = (userId: string, isCurrentlyBanned: boolean) => {
     if (!firestore) return;
-    try {
-      await updateDoc(doc(firestore, 'users', userId), { isBanned: !isCurrentlyBanned });
-      toast({ title: `User ${isCurrentlyBanned ? 'Unbanned' : 'Banned'}`, description: `The user has been successfully ${isCurrentlyBanned ? 'unbanned' : 'banned'}.` });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not update user status.", variant: "destructive" });
-    }
+    const docRef = doc(firestore, 'users', userId);
+    const data = { isBanned: !isCurrentlyBanned };
+    updateDoc(docRef, data)
+        .then(() => toast({ title: `User ${isCurrentlyBanned ? 'Unbanned' : 'Banned'}`, description: `The user has been successfully ${isCurrentlyBanned ? 'unbanned' : 'banned'}.` }))
+        .catch(error => {
+            console.error("Error updating user status:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: data,
+            }));
+        });
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = (userId: string) => {
       if (!firestore) return;
       if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
-      try {
-        await deleteDoc(doc(firestore, 'users', userId));
-        toast({ title: "User Deleted", description: "The user document has been removed." });
-      } catch (error) {
-        toast({ title: "Error", description: "Could not delete user.", variant: "destructive" });
-      }
+      const docRef = doc(firestore, 'users', userId);
+      deleteDoc(docRef)
+        .then(() => toast({ title: "User Deleted", description: "The user document has been removed." }))
+        .catch(error => {
+            console.error("Error deleting user:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'delete',
+            }));
+        });
   };
 
-  const handleArchiveProperty = async (propertyId: string) => {
+  const handleArchiveProperty = (propertyId: string) => {
     if (!firestore) return;
     if (!window.confirm("Are you sure you want to archive this property? It will be hidden from public view but not permanently deleted.")) return;
-    try {
-      await updateDoc(doc(firestore, 'properties', propertyId), { listingStatus: 'archived' });
-      toast({ title: "Property Archived", description: "The property listing has been archived." });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not archive property.", variant: "destructive" });
-    }
+    const docRef = doc(firestore, 'properties', propertyId);
+    const data = { listingStatus: 'archived' };
+    updateDoc(docRef, data)
+        .then(() => toast({ title: "Property Archived", description: "The property listing has been archived." }))
+        .catch(error => {
+            console.error("Error archiving property:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: data,
+            }));
+        });
   };
   
-  const handleMarkAsSoldRented = async (propertyId: string, currentStatus: string) => {
+  const handleMarkAsSoldRented = (propertyId: string, currentStatus: string) => {
       if (!firestore) return;
       const property = allProperties?.find(p => p.id === propertyId);
       if (!property) return;
 
       const isForRent = property.listingFor === 'Rent';
       const newStatus = currentStatus === 'sold' || currentStatus === 'rented' ? 'approved' : (isForRent ? 'rented' : 'sold');
-      
-      try {
-        await updateDoc(doc(firestore, 'properties', propertyId), { listingStatus: newStatus });
-        toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` });
-      } catch (error) {
-        toast({ title: "Error", description: "Could not update property status.", variant: "destructive" });
-      }
+      const docRef = doc(firestore, 'properties', propertyId);
+      const data = { listingStatus: newStatus };
+
+      updateDoc(docRef, data)
+        .then(() => toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` }))
+        .catch(error => {
+            console.error("Error updating property status:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: data,
+            }));
+        });
   };
 
   const handleUserCsvDownload = () => {
@@ -515,15 +551,15 @@ export default function AdminPage() {
        </div>
 
       <Card className="mb-8">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2"><Users /> User Management</CardTitle>
             <CardDescription>
               A total of {usersCount} users found. Search by name, email, or phone.
             </CardDescription>
           </div>
-           <div className="flex items-center gap-4">
-            <div className="relative">
+           <div className="flex w-full md:w-auto items-center gap-4">
+            <div className="relative flex-grow">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Search users..." className="pl-10" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
             </div>
@@ -653,7 +689,7 @@ export default function AdminPage() {
                     <CardDescription>View and manage all property listings.</CardDescription>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-                    <div className="relative w-full">
+                    <div className="relative w-full flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input placeholder="Search title or area..." className="pl-10 w-full" value={propertySearch} onChange={(e) => setPropertySearch(e.target.value)} />
                     </div>

@@ -6,14 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, MoreVertical, Trash, EyeOff, Eye, LoaderCircle, Download, Building2, BedDouble, Bath, Expand, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { collection, query, where, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
-import type { Property, PropertyOwner } from '@/lib/types';
+import type { Property } from '@/lib/types';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useToast } from "@/hooks/use-toast";
+
+// This type is defined inline in the original file, so we do the same
+type PropertyOwner = { name: string; phone: string; isAgent: boolean; };
 
 // PDF Template Component - This will be rendered off-screen
 const PropertyPdfCard = ({ property, owner, innerRef }: { property: Property | null, owner: PropertyOwner | null, innerRef: React.Ref<HTMLDivElement> }) => {
@@ -192,34 +195,44 @@ export default function MyPropertiesPage() {
     }
   }
 
-  const handleDeleteProperty = async (propertyId: string) => {
+  const handleDeleteProperty = (propertyId: string) => {
     if (!firestore) return;
     if (!window.confirm("Are you sure you want to permanently delete this property? This action cannot be undone.")) return;
 
-    try {
-        await deleteDoc(doc(firestore, 'properties', propertyId));
-        // Also delete the private details
-        await deleteDoc(doc(firestore, 'propertyPrivateDetails', propertyId));
-        toast({ title: "Property Deleted", description: "The property has been permanently removed." });
-    } catch (error) {
+    const publicDocRef = doc(firestore, 'properties', propertyId);
+    const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
+    
+    // In a real app, you might want to use a batch write here
+    deleteDoc(publicDocRef)
+      .then(() => deleteDoc(privateDocRef))
+      .then(() => toast({ title: "Property Deleted", description: "The property has been permanently removed." }))
+      .catch((error) => {
         console.error("Error deleting property:", error);
-        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the property." });
-    }
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: publicDocRef.path,
+          operation: 'delete',
+        }));
+      });
   };
 
-  const handleToggleAvailability = async (property: Property) => {
+  const handleToggleAvailability = (property: Property) => {
       if (!firestore) return;
       
       const isRentedOrSold = property.listingStatus === 'sold' || property.listingStatus === 'rented';
       const newStatus = isRentedOrSold ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
+      const docRef = doc(firestore, 'properties', property.id);
+      const data = { listingStatus: newStatus };
       
-      try {
-          await updateDoc(doc(firestore, 'properties', property.id), { listingStatus: newStatus });
-          toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` });
-      } catch (error) {
+      updateDoc(docRef, data)
+        .then(() => toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` }))
+        .catch((error) => {
           console.error("Error updating status:", error);
-          toast({ variant: "destructive", title: "Update Failed", description: "Could not update the property status." });
-      }
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: data,
+          }));
+        });
   };
 
   const getStatusBadgeVariant = (status: string) => {

@@ -9,7 +9,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins, Calendar as CalendarIcon, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useMemo } from 'react';
-import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { Property, PropertyOwner, SiteVisit } from '@/lib/types';
 import { addDoc, collection, doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -118,9 +118,9 @@ export default function PropertyDetailPage() {
     if (!user) {
       toast({
         title: "Login Required",
-        description: "Login is currently disabled. This feature is unavailable.",
-        variant: "destructive",
+        description: "Please log in to view contact details.",
       });
+      router.push('/user-login');
       return;
     }
 
@@ -163,25 +163,28 @@ export default function PropertyDetailPage() {
 
         // If no subscription, check for credits
         if (!hasAccess && userData.credits && userData.credits > 0) {
-          await updateDoc(userDocRef, { credits: increment(-1) });
-          hasAccess = true;
-          toast({
-            title: "Credit Spent!",
-            description: `You have ${userData.credits - 1} credits remaining.`,
-          });
-        }
-        
-        if (hasAccess) {
-            setIsLoadingPrivate(true);
-            const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
-            const docSnap = await getDoc(privateDocRef);
-            if(docSnap.exists()) {
-                setPrivateDetails(docSnap.data() as PropertyOwner);
-                setIsContactVisible(true);
-            } else {
-                toast({ variant: "destructive", title: "Error", description: "Contact details for this property are missing." });
-            }
-            setIsLoadingPrivate(false);
+          const creditData = { credits: increment(-1) };
+          updateDoc(userDocRef, creditData)
+            .then(() => {
+                hasAccess = true;
+                toast({
+                  title: "Credit Spent!",
+                  description: `You have ${userData.credits - 1} credits remaining.`,
+                });
+                // This part runs after the credit is decremented successfully
+                revealContactDetails();
+            })
+            .catch(error => {
+                console.error("Error decrementing credits:", error);
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'update',
+                    requestResourceData: creditData,
+                }));
+            });
+        } else if (hasAccess) {
+            // This part runs if they had a subscription
+            revealContactDetails();
         } else {
           // No credits or subscription
           toast({
@@ -200,20 +203,45 @@ export default function PropertyDetailPage() {
     }
   };
 
-  async function onScheduleVisit(values: z.infer<typeof visitSchema>) {
+  const revealContactDetails = async () => {
+    if (!firestore || !params.id) return;
+    setIsLoadingPrivate(true);
+    const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
+    try {
+        const docSnap = await getDoc(privateDocRef);
+        if(docSnap.exists()) {
+            setPrivateDetails(docSnap.data() as PropertyOwner);
+            setIsContactVisible(true);
+        } else {
+            toast({ variant: "destructive", title: "Error", description: "Contact details for this property are missing." });
+        }
+    } catch (error) {
+        console.error("Error fetching private details:", error);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: privateDocRef.path,
+            operation: 'get',
+        }));
+    } finally {
+        setIsLoadingPrivate(false);
+    }
+  };
+
+
+  function onScheduleVisit(values: z.infer<typeof visitSchema>) {
     if (!user || !firestore || !property) {
         toast({
             variant: "destructive",
             title: "Login Required",
-            description: "Login is currently disabled, so you cannot schedule a visit.",
+            description: "You must be logged in to schedule a visit.",
         });
+        router.push('/user-login');
         return;
     }
 
     const [hour] = values.visitTime.split(':').map(Number);
     const scheduledDateTime = setMinutes(setHours(values.visitDate, hour), 0);
 
-    const visitRequest: Omit<SiteVisit, 'id'> = {
+    const visitRequest: Omit<SiteVisit, 'id' | 'createdAt'> = {
         propertyId: property.id,
         propertyTitle: property.title,
         propertyImage: property.photos[0],
@@ -224,18 +252,27 @@ export default function PropertyDetailPage() {
         scheduledAt: scheduledDateTime.toISOString(),
         message: values.message || '',
         status: 'pending',
-        createdAt: serverTimestamp(),
     };
 
-    try {
-        await addDoc(collection(firestore, 'site_visits'), visitRequest);
+    const visitRequestWithTimestamp = {
+        ...visitRequest,
+        createdAt: serverTimestamp(),
+    };
+    
+    addDoc(collection(firestore, 'site_visits'), visitRequestWithTimestamp)
+      .then(() => {
         toast({ title: "Request Sent!", description: "The property owner has been notified of your visit request." });
         setIsVisitDialogOpen(false);
         visitForm.reset();
-    } catch (error) {
+      })
+      .catch((error) => {
         console.error("Error sending visit request:", error);
-        toast({ variant: "destructive", title: "Failed to Send Request", description: "An error occurred. Please try again." });
-    }
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'site_visits',
+          operation: 'create',
+          requestResourceData: visitRequest, // Pass data without serverTimestamp
+        }));
+      });
   }
 
 
