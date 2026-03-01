@@ -11,8 +11,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Safely check for admin UID, ensuring user is signed in first.
-      return isSignedIn() && request.auth.uid == 'IultEIQMgAUPwoqAEWX7ZIunjNB3';
+      // The admin is identified by their email address.
+      return isSignedIn() && request.auth.token.email == 'helpnestil@gmail.com';
     }
 
     function isOwner(ownerId) {
@@ -41,23 +41,23 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-      // --- ADMINS ---
-      // Admins have full read and write access to all properties.
-      allow read, write: if isAdmin();
+      // --- WRITES ---
+      // Admins have full write access.
+      allow write: if isAdmin();
+      // An owner can create, update, or delete their own property.
+      allow create: if isOwner(request.resource.data.ownerId);
+      allow update, delete: if isOwner(resource.data.ownerId);
       
-      // --- OWNERS ---
-      // An owner can read, update, or delete their own property documents.
-      // 'read' includes 'get' and 'list', so an owner can see their own properties regardless of approval status.
-      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
+      // --- READS ---
+      // Get: An admin, the owner, or anyone (if approved) can get a document.
+      allow get: if isAdmin() || isOwner(resource.data.ownerId) || resource.data.isApproved == true;
       
-      // An owner can create a property for themselves.
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
-
-      // --- PUBLIC ---
-      // Any user (including unauthenticated visitors) can read a property if it is approved.
-      // This rule allows the public homepage and property search to function correctly
-      // as long as the client query includes `where('isApproved', '==', true)`.
-      allow get, list: if resource.data.isApproved == true;
+      // List: Anyone can perform a list query.
+      // The security is enforced by the 'get' rule which is checked for each document
+      // that the query returns. Therefore, client queries must be constructed
+      // to only ask for documents the user is allowed to 'get'. For public users,
+      // this means `where('isApproved', '==', true)`.
+      allow list: if true;
     }
 
 

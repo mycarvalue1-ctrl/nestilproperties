@@ -27,20 +27,22 @@ export default function Home() {
   const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
 
   const recentPropertiesQuery = useMemoFirebase(() => {
-    if (isUserLoading || !user) return null; // Do not query if auth is loading or user is not logged in
+    // This query is for the public homepage and should run for everyone.
     if (!firestore) return null;
 
     return query(
       collection(firestore, 'properties'),
-      where('listingStatus', '==', 'approved'),
+      where('isApproved', '==', true),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );
-  }, [firestore, user, isUserLoading]);
+  }, [firestore]);
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
   
-  const isLoading = isUserLoading || isLoadingProperties || isLoadingFavorites;
+  // The public list of properties is the primary loading state.
+  // Auth-related loading is handled separately for UI elements like the favorite heart.
+  const isLoading = isLoadingProperties;
 
 
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
@@ -114,15 +116,6 @@ export default function Home() {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[...Array(6)].map((_, i) => <PropertyCardSkeleton key={i} />)}
-            </div>
-          ) : !user ? (
-             <div className="text-center py-16 border-dashed border-2 rounded-lg">
-                <User className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h2 className="text-xl font-semibold mt-4">Login to View Listings</h2>
-                <p className="text-muted-foreground mt-2">Please log in or create an account to browse properties.</p>
-                <Button asChild className="mt-4">
-                    <Link href="/user-login">Login / Sign Up</Link>
-                </Button>
             </div>
           ) : (
             <>
@@ -213,7 +206,7 @@ export default function Home() {
       <section className="py-16 md:py-24 bg-background">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold font-headline">
+            <h2 className="text-3xl md:text-4xl font-headline">
               Explore Local Areas
             </h2>
             <p className="text-muted-foreground mt-2">
