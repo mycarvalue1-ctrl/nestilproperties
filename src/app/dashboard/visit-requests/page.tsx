@@ -113,7 +113,7 @@ export default function VisitRequestsPage() {
                 <TableRow>
                   <TableHead>Property</TableHead>
                   <TableHead>Visitor</TableHead>
-                  <TableHead>Requested Date & Time</TableHead>
+                  <TableHead className="hidden sm:table-cell">Requested Date & Time</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -146,7 +146,7 @@ export default function VisitRequestsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{format(new Date(visit.scheduledAt), 'PPP p')}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{format(new Date(visit.scheduledAt), 'PPP p')}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(visit.status)} className="capitalize">
                         {visit.status}
@@ -154,7 +154,7 @@ export default function VisitRequestsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       {visit.status === 'pending' && (
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex flex-col sm:flex-row gap-2 justify-end">
                           <Button
                             size="sm"
                             variant="outline"
@@ -196,5 +196,3 @@ export default function VisitRequestsPage() {
     </div>
   );
 }
-
-    

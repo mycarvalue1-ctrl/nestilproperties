@@ -647,18 +647,18 @@ export default function AdminPage() {
       
       <Card>
         <CardHeader>
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                 <div>
                     <CardTitle>All Listings</CardTitle>
                     <CardDescription>View and manage all property listings.</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                    <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search title or area..." className="pl-10" value={propertySearch} onChange={(e) => setPropertySearch(e.target.value)} />
+                        <Input placeholder="Search title or area..." className="pl-10 w-full" value={propertySearch} onChange={(e) => setPropertySearch(e.target.value)} />
                     </div>
                     <Select value={propertyStatusFilter} onValueChange={setPropertyStatusFilter}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                             <SelectValue placeholder="Filter by Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -672,7 +672,7 @@ export default function AdminPage() {
                         </SelectContent>
                     </Select>
                      <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                             <SelectValue placeholder="Filter by Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -682,7 +682,7 @@ export default function AdminPage() {
                             <SelectItem value="lease">For Lease</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button onClick={handlePropertyCsvDownload}>
+                    <Button onClick={handlePropertyCsvDownload} className="w-full sm:w-auto">
                         <Download className="mr-2 h-4 w-4" />
                         Download CSV
                     </Button>
