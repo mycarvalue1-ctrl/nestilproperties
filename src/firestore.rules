@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -14,7 +15,8 @@ service cloud.firestore {
 
     // Rules for the 'properties' collection
     match /properties/{propertyId} {
-      // ANYONE can get or list properties. Client-side queries should filter for isApproved == true.
+      // ANYONE can read properties. This is the most open rule possible and
+      // is necessary to allow public listing pages to work without auth errors.
       allow get, list: if true;
 
       // An authenticated user can create a property for themselves.

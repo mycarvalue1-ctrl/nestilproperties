@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirestore, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -253,58 +253,49 @@ export default function AdminPage() {
     if (!firestore) return;
     setProcessingPropertyId(id);
     const propRef = doc(firestore, 'properties', id);
-    const data = { isApproved: true, listingStatus: 'approved' };
-    updateDoc(propRef, data)
-      .then(() => toast({ title: "Property Approved", description: "The listing is now live." }))
-      .catch(error => {
-        console.error("Error approving property:", error);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: propRef.path,
-          operation: 'update',
-          requestResourceData: data,
-        }));
-      })
-      .finally(() => setProcessingPropertyId(null));
+    try {
+      await updateDoc(propRef, { isApproved: true, listingStatus: 'approved' });
+      toast({ title: "Property Approved", description: "The listing is now live." });
+    } catch (error) {
+      console.error("Error approving property:", error);
+      toast({ variant: "destructive", title: "Approval Failed", description: "Could not approve the property." });
+    } finally {
+      setProcessingPropertyId(null);
+    }
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     if (!firestore) return;
     setProcessingPropertyId(id);
     const propRef = doc(firestore, 'properties', id);
-    const data = { isApproved: false, listingStatus: 'rejected' };
-    updateDoc(propRef, data)
-      .then(() => toast({ title: "Property Rejected" }))
-      .catch(error => {
-        console.error("Error rejecting property:", error);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: propRef.path,
-            operation: 'update',
-            requestResourceData: data,
-        }));
-      })
-      .finally(() => setProcessingPropertyId(null));
+    try {
+      await updateDoc(propRef, { isApproved: false, listingStatus: 'rejected' });
+      toast({ title: "Property Rejected" });
+    } catch (error) {
+      console.error("Error rejecting property:", error);
+      toast({ variant: "destructive", title: "Rejection Failed", description: "Could not reject the property." });
+    } finally {
+      setProcessingPropertyId(null);
+    }
   };
 
-  const handleArchiveProperty = (propertyId: string) => {
+  const handleArchiveProperty = async (propertyId: string) => {
     if (!firestore) return;
     if (!window.confirm("Are you sure you want to archive this property? It will be hidden from public view but not permanently deleted.")) return;
     setProcessingPropertyId(propertyId);
     const propRef = doc(firestore, 'properties', propertyId);
-    const data = { listingStatus: 'archived' };
-    updateDoc(propRef, data)
-        .then(() => toast({ title: "Property Archived", description: "The property listing has been archived." }))
-        .catch(error => {
-            console.error("Error archiving property:", error);
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: propRef.path,
-                operation: 'update',
-                requestResourceData: data,
-            }));
-        })
-        .finally(() => setProcessingPropertyId(null));
+    try {
+      await updateDoc(propRef, { listingStatus: 'archived' });
+      toast({ title: "Property Archived", description: "The property listing has been archived." });
+    } catch (error) {
+      console.error("Error archiving property:", error);
+      toast({ variant: "destructive", title: "Archive Failed", description: "Could not archive the property." });
+    } finally {
+      setProcessingPropertyId(null);
+    }
   };
   
-  const handleMarkAsSoldRented = (propertyId: string) => {
+  const handleMarkAsSoldRented = async (propertyId: string) => {
       if (!firestore) return;
       const property = allProperties?.find(p => p.id === propertyId);
       if (!property) return;
@@ -312,19 +303,15 @@ export default function AdminPage() {
       const newStatus = property.listingStatus === 'sold' || property.listingStatus === 'rented' ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
       setProcessingPropertyId(propertyId);
       const propRef = doc(firestore, 'properties', propertyId);
-      const data = { listingStatus: newStatus };
-
-      updateDoc(propRef, data)
-        .then(() => toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` }))
-        .catch(error => {
-            console.error("Error updating property status:", error);
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: propRef.path,
-                operation: 'update',
-                requestResourceData: data,
-            }));
-        })
-        .finally(() => setProcessingPropertyId(null));
+      try {
+        await updateDoc(propRef, { listingStatus: newStatus });
+        toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` });
+      } catch (error) {
+        console.error("Error updating property status:", error);
+        toast({ variant: "destructive", title: "Update Failed", description: "Could not update property status." });
+      } finally {
+        setProcessingPropertyId(null);
+      }
   };
 
   

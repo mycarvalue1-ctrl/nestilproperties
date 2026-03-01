@@ -18,7 +18,7 @@ function FavoritesList() {
   const firestore = useFirestore();
 
   const favoritesQuery = useMemoFirebase(() => {
-    if (!firestore || favoriteIds.size === 0) return null;
+    if (!firestore || !favoriteIds || favoriteIds.size === 0) return null;
     const favoriteIdsArray = Array.from(favoriteIds);
     // Firestore 'in' queries are limited to 30 elements.
     // For a real app with many favorites, pagination or multiple queries would be needed.
