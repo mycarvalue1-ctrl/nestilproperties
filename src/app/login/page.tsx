@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -41,7 +42,6 @@ export default function LoginPage() {
       const redirectUrl = searchParams.get('redirect') || '/dashboard';
       router.push(redirectUrl);
     } catch (error: any) {
-      console.error('Login error:', error);
       toast({
         variant: 'destructive',
         title: 'Login Failed',

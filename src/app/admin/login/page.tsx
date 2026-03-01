@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -45,11 +46,10 @@ export default function AdminLoginPage() {
       });
       router.push('/admin');
     } catch (error: any) {
-      console.error('Admin login error:', error);
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.message || 'An unknown error occurred.',
+        description: 'Invalid email or password. Please try again.',
       });
     } finally {
       setIsLoading(false);
