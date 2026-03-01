@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu, Search, User, Coins, Globe, PlusCircle } from 'lucide-react';
+import { Menu, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -11,18 +11,10 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LocationSelector } from './location-selector';
-import { useState } from 'react';
+import { UserNav } from './user-nav';
 
 export function Header() {
   const pathname = usePathname();
@@ -32,7 +24,6 @@ export function Header() {
     { href: '/properties?transaction=Sale', label: 'Buy' },
   ];
   
-  // Create a specific list for the mobile menu to avoid duplicate keys.
   const mobileNavLinks = [...navLinks, { href: '/post-property', label: 'Post Property Free' }];
 
   return (
@@ -51,7 +42,7 @@ export function Header() {
               href={link.href}
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                pathname === '/properties' && (new URLSearchParams(window.location.search)).get('transaction') === link.label ? "text-foreground font-semibold" : "text-foreground/60"
+                pathname === '/properties' && typeof window !== 'undefined' && (new URLSearchParams(window.location.search)).get('transaction') === link.label ? "text-foreground font-semibold" : "text-foreground/60"
               )}
             >
               {link.label}
@@ -66,6 +57,8 @@ export function Header() {
               Post Property Free
             </Link>
           </Button>
+          
+          <UserNav />
 
           <Sheet>
             <SheetTrigger asChild>

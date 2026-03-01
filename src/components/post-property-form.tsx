@@ -46,8 +46,8 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useFirestore, errorEmitter, FirestorePermissionError, useUser } from '@/firebase';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
 import { Skeleton } from './ui/skeleton';
@@ -155,6 +155,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
 
@@ -204,8 +205,6 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   });
 
   const propertyType = useWatch({ control: form.control, name: 'propertyType' });
-  const watchedCity = useWatch({ control: form.control, name: 'city' });
-  const watchedLocality = useWatch({ control: form.control, name: 'locality' });
   const watchedPrice = useWatch({ control: form.control, name: 'price' });
   const watchedArea = useWatch({ control: form.control, name: 'details.area' });
   const watchedPlotArea = useWatch({ control: form.control, name: 'details.plotArea' });
@@ -218,6 +217,12 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       }
       return '0.00';
   }, [watchedPrice, watchedArea, watchedPlotArea]);
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.replace(`/login?redirect=/post-property${editId ? `?edit=${editId}` : ''}`);
+    }
+  }, [isUserLoading, user, editId, router]);
 
 
   useEffect(() => {
@@ -239,6 +244,16 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   }, [form, editId]);
   
   useEffect(() => {
+    if (user && !form.getValues('ownerName')) {
+        form.setValue('ownerName', user.displayName || '');
+    }
+    if (user && !form.getValues('mobile')) {
+        // Assuming phone number might be stored in Firestore user profile, not Auth
+        // This part needs adjustment based on where phone number is actually stored
+    }
+  }, [user, form]);
+  
+  useEffect(() => {
     async function fetchPropertyData() {
         if (editId && firestore) {
             setIsLoading(true);
@@ -250,49 +265,55 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
 
                 if (propDocSnap.exists()) {
                     const data = propDocSnap.data();
-                    const privateData = privateDocSnap.exists() ? privateDocSnap.data() : null;
+                    // Security check: only owner or admin can edit
+                    if (user && (data.ownerId === user.uid || user.email === 'helpnestil@gmail.com')) {
+                        const privateData = privateDocSnap.exists() ? privateDocSnap.data() : null;
 
-                    form.reset({
-                        propertyType: data.propertyType,
-                        listingFor: data.listingFor,
-                        title: data.title,
-                        description: data.description,
-                        state: data.state || 'Andhra Pradesh',
-                        city: data.city,
-                        locality: data.address,
-                        pincode: data.pincode,
-                        googleMapsLink: data.googleMapsLink,
-                        price: data.price,
-                        priceOnRequest: data.priceOnRequest || false,
-                        negotiable: data.negotiable ? 'Yes' : 'No',
-                        maintenance: data.maintenance,
-                        deposit: data.deposit,
-                        availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
-                        preferredTenants: data.preferredTenants,
-                        visitAvailability: data.visitAvailability,
-                        amenities: data.amenities,
-                        nonVegAllowed: data.nonVegAllowed,
-                        vehicleParking: data.vehicleParking,
-                        existingPhotos: data.photos,
-                        photos: [],
-                        ownerName: privateData?.name || '',
-                        mobile: privateData?.phone || '',
-                        whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
-                        postedBy: data.postedByType,
-                        details: {
-                            bhk: data.bhk,
-                            bathrooms: String(data.baths || ''),
-                            floor: data.floor,
-                            totalFloors: data.totalFloors,
-                            area: data.areaSqFt,
-                            facing: data.facing,
-                            age: data.age,
-                            furnishing: data.furnishing,
-                            plotArea: data.plotArea,
-                            roadWidth: data.roadWidth,
-                            approved: data.dtcpApproved ? 'Yes' : 'No',
-                        },
-                    });
+                        form.reset({
+                            propertyType: data.propertyType,
+                            listingFor: data.listingFor,
+                            title: data.title,
+                            description: data.description,
+                            state: data.state || 'Andhra Pradesh',
+                            city: data.city,
+                            locality: data.address,
+                            pincode: data.pincode,
+                            googleMapsLink: data.googleMapsLink,
+                            price: data.price,
+                            priceOnRequest: data.priceOnRequest || false,
+                            negotiable: data.negotiable ? 'Yes' : 'No',
+                            maintenance: data.maintenance,
+                            deposit: data.deposit,
+                            availableFrom: data.availableFrom ? new Date(data.availableFrom) : undefined,
+                            preferredTenants: data.preferredTenants,
+                            visitAvailability: data.visitAvailability,
+                            amenities: data.amenities,
+                            nonVegAllowed: data.nonVegAllowed,
+                            vehicleParking: data.vehicleParking,
+                            existingPhotos: data.photos,
+                            photos: [],
+                            ownerName: privateData?.name || '',
+                            mobile: privateData?.phone || '',
+                            whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
+                            postedBy: data.postedByType,
+                            details: {
+                                bhk: data.bhk,
+                                bathrooms: String(data.baths || ''),
+                                floor: data.floor,
+                                totalFloors: data.totalFloors,
+                                area: data.areaSqFt,
+                                facing: data.facing,
+                                age: data.age,
+                                furnishing: data.furnishing,
+                                plotArea: data.plotArea,
+                                roadWidth: data.roadWidth,
+                                approved: data.dtcpApproved ? 'Yes' : 'No',
+                            },
+                        });
+                    } else {
+                        toast({ variant: 'destructive', title: 'Access Denied', description: 'You do not have permission to edit this property.' });
+                        router.push('/dashboard/my-properties');
+                    }
                 } else {
                     toast({ variant: 'destructive', title: 'Not Found', description: 'Property not found.' });
                     router.push('/dashboard/my-properties');
@@ -307,8 +328,8 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             setIsLoading(false);
         }
     }
-    fetchPropertyData();
-  }, [editId, firestore, form, router, toast]);
+    if (user) fetchPropertyData();
+  }, [editId, firestore, form, router, toast, user]);
 
   const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
   const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
@@ -336,8 +357,8 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!firestore) {
-      toast({ variant: "destructive", title: "Connection Error", description: "Could not connect to the database." });
+    if (!firestore || !user) {
+      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to post a property." });
       return;
     }
     setIsSubmitting(true);
@@ -352,7 +373,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         const authRes = await fetch('/api/imagekit/auth');
         if (!authRes.ok) throw new Error('Failed to authenticate with ImageKit.');
         const authParams = await authRes.json();
-        const uploadPromises = values.photos.map(file => imagekit.upload({ file, fileName: file.name, ...authParams, folder: `/nestil/properties/anonymous/` }));
+        const uploadPromises = values.photos.map(file => imagekit.upload({ file, fileName: file.name, ...authParams, folder: `/nestil/properties/${user.uid}/` }));
         const results = await Promise.all(uploadPromises);
         uploadedPhotoURLs = results.map(res => res.url);
       }
@@ -365,7 +386,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       
     const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
     const propertyData = {
-      ownerId: "anonymous_user",
+      ownerId: user.uid,
       title: values.title, description: values.description, propertyType: values.propertyType, type: values.propertyType,
       listingFor: values.listingFor, status: `For ${values.listingFor}`, city: values.city, address: values.locality,
       pincode: values.pincode, googleMapsLink: values.googleMapsLink, price: values.priceOnRequest ? 0 : values.price,
@@ -395,6 +416,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     };
 
     const privateDocData = {
+        ownerId: user.uid, // Denormalized for security rules
         name: values.ownerName, phone: values.mobile, isAgent: values.postedBy === 'Agent',
         verified: true, whatsAppAvailable: values.whatsAppAvailable,
     };
@@ -404,16 +426,16 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             const propRef = doc(firestore, 'properties', editId);
             await updateDoc(propRef, propertyData);
             const privateRef = doc(firestore, 'propertyPrivateDetails', editId);
-            await updateDoc(privateRef, privateDocData);
+            await setDoc(privateRef, privateDocData, { merge: true });
         } else {
             const newPropRef = await addDoc(collection(firestore, 'properties'), propertyData);
-            const privateRef = doc(firestore, 'propertyPrivateDetails', newPropRef.id);
             await updateDoc(doc(firestore, 'properties', newPropRef.id), { id: newPropRef.id });
+            const privateRef = doc(firestore, 'propertyPrivateDetails', newPropRef.id);
             await setDoc(privateRef, privateDocData);
         }
         toast({ title: editId ? "Update Successful!" : "Submission Successful!", description: "Your property has been submitted for approval."});
         form.reset();
-        router.push(editId ? `/properties/${editId}` : '/');
+        router.push(editId ? `/properties/${editId}` : '/dashboard/my-properties');
     } catch (error) {
         console.error('Error processing property: ', error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -426,7 +448,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     }
   }
   
-    if (isLoading) {
+    if (isLoading || isUserLoading) {
         return <FormSkeleton />;
     }
 

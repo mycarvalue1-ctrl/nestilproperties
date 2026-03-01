@@ -20,9 +20,34 @@ export function DashboardNav() {
     router.push('/');
   };
 
+  const links = [
+    { href: '/dashboard', label: 'Overview', icon: LayoutGrid },
+    { href: '/dashboard/my-properties', label: 'My Properties', icon: List },
+    { href: '/dashboard/visit-requests', label: 'Visit Requests', icon: CalendarCheck },
+    { href: '/favorites', label: 'Favorites', icon: Heart },
+    { href: '/buy-credits', label: 'Buy Credits', icon: Coins },
+    { href: '/dashboard/profile', label: 'Profile Settings', icon: User },
+  ];
+
   return (
     <nav className="flex flex-col gap-2">
-      <p className="text-sm text-muted-foreground p-2">Dashboard has been disabled.</p>
+       {links.map((link) => (
+         <Button
+          key={link.href}
+          variant={pathname === link.href ? 'secondary' : 'ghost'}
+          className="justify-start"
+          asChild
+        >
+          <Link href={link.href}>
+            <link.icon className="mr-2 h-4 w-4" />
+            {link.label}
+          </Link>
+        </Button>
+       ))}
+      <Button variant="ghost" className="justify-start" onClick={handleLogout}>
+        <LogOut className="mr-2 h-4 w-4" />
+        Logout
+      </Button>
     </nav>
   );
 }

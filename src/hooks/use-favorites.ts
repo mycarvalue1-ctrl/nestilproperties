@@ -1,22 +1,59 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { useRouter } from 'next/navigation';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 
 export function useFavorites() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  const favoriteIds = useMemo(() => new Set<string>(), []);
+  const favoritesColRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, `users/${user.uid}/favorites`);
+  }, [firestore, user]);
 
-  const toggleFavorite = useCallback((propertyId: string, isCurrentlyFavorited: boolean) => {
-    toast({
-      variant: "destructive",
-      title: "Feature Disabled",
-      description: "Favorites are currently not available.",
-    });
-  }, [toast, router]);
+  const { data: favoriteDocs, isLoading: isLoadingFavorites } = useCollection(favoritesColRef);
 
-  return { favoriteIds, toggleFavorite, isLoadingFavorites: false };
+  const favoriteIds = useMemo(() => {
+    if (!favoriteDocs) return new Set<string>();
+    return new Set(favoriteDocs.map(doc => doc.id));
+  }, [favoriteDocs]);
+
+  const toggleFavorite = useCallback(async (propertyId: string, isCurrentlyFavorited: boolean) => {
+    if (!user) {
+      toast({
+        title: 'Please log in',
+        description: 'You need to be logged in to save favorites.',
+        action: <Button onClick={() => router.push(`/login?redirect=/properties/${propertyId}`)}>Login</Button>,
+      });
+      return;
+    }
+    if (!firestore) return;
+
+    const favoriteDocRef = doc(firestore, `users/${user.uid}/favorites`, propertyId);
+
+    try {
+      if (isCurrentlyFavorited) {
+        await deleteDoc(favoriteDocRef);
+        toast({ title: 'Removed from Favorites' });
+      } else {
+        await setDoc(favoriteDocRef, { propertyId, addedAt: new Date() });
+        toast({ title: 'Added to Favorites' });
+      }
+    } catch (error: any) {
+      console.error("Error toggling favorite:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not update your favorites.',
+      });
+    }
+  }, [user, firestore, toast, router]);
+
+  return { favoriteIds, toggleFavorite, isLoadingFavorites: isUserLoading || isLoadingFavorites };
 }

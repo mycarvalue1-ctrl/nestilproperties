@@ -1,16 +1,50 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read access to all properties
-    match /properties/{propertyId} {
-      allow read: if true;
-      // Allow anyone to create/update properties since auth is disabled
-      allow write: if true;
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow anyone to write/read private details since auth is disabled
+    function isAdmin() {
+      // This logic must match the front-end check in /admin/layout.tsx
+      return request.auth != null && request.auth.token.email == 'helpnestil@gmail.com';
+    }
+
+    // Rules for the 'properties' collection
+    match /properties/{propertyId} {
+      // ANYONE can read properties. Client-side queries must filter for isApproved == true for public pages.
+      // This approach is robust and prevents auth-related race conditions for public data.
+      allow read: if true;
+
+      // An authenticated user can create a property for themselves.
+      // Rule enforces that the ownerId in the document matches the user's UID and the property starts as unapproved.
+      allow create: if isOwner(request.resource.data.ownerId)
+                    && request.resource.data.isApproved == false;
+
+      // An owner can update their own properties, but CANNOT change the isApproved status.
+      // An admin can update any field on any property.
+      allow update: if (isOwner(resource.data.ownerId) && request.resource.data.isApproved == resource.data.isApproved)
+                    || isAdmin();
+
+      // Only admins can delete properties.
+      allow delete: if isAdmin();
+    }
+
+    // Rules for the 'propertyPrivateDetails' collection
     match /propertyPrivateDetails/{propertyId} {
-      allow read, write: if true;
+      // Any authenticated user can read the private details (like phone number).
+      // This is necessary for the property detail page to function for logged-in users.
+      allow read: if request.auth != null;
+
+      // Only the property owner or an admin can create or update the private details.
+      allow write: if isOwner(request.resource.data.ownerId) || isAdmin();
+    }
+
+    // Rules for user-specific data, like favorites.
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
