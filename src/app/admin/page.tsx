@@ -160,6 +160,8 @@ export default function AdminPage() {
   const pdfRef = useRef<HTMLDivElement>(null);
   const [pdfProperty, setPdfProperty] = useState<{ property: Property, owner: PropertyOwner } | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [processingUserId, setProcessingUserId] = useState<string | null>(null);
+  const [processingPropertyId, setProcessingPropertyId] = useState<string | null>(null);
 
   const [userSearch, setUserSearch] = useState('');
   const [propertySearch, setPropertySearch] = useState('');
@@ -289,6 +291,7 @@ export default function AdminPage() {
 
   const handleApprove = (id: string) => {
     if (!firestore) return;
+    setProcessingPropertyId(id);
     const docRef = doc(firestore, 'properties', id);
     const data = { listingStatus: 'approved', isApproved: true };
     updateDoc(docRef, data)
@@ -300,11 +303,13 @@ export default function AdminPage() {
                 operation: 'update',
                 requestResourceData: data,
             }));
-        });
+        })
+        .finally(() => setProcessingPropertyId(null));
   };
 
   const handleReject = (id: string) => {
     if (!firestore) return;
+    setProcessingPropertyId(id);
     const docRef = doc(firestore, 'properties', id);
     const data = { listingStatus: 'rejected', isApproved: false };
     updateDoc(docRef, data)
@@ -316,11 +321,13 @@ export default function AdminPage() {
                 operation: 'update',
                 requestResourceData: data,
             }));
-        });
+        })
+        .finally(() => setProcessingPropertyId(null));
   };
 
   const handleBlockUser = (userId: string, isCurrentlyBanned: boolean) => {
     if (!firestore) return;
+    setProcessingUserId(userId);
     const docRef = doc(firestore, 'users', userId);
     const data = { isBanned: !isCurrentlyBanned };
     updateDoc(docRef, data)
@@ -332,12 +339,14 @@ export default function AdminPage() {
                 operation: 'update',
                 requestResourceData: data,
             }));
-        });
+        })
+        .finally(() => setProcessingUserId(null));
   };
 
   const handleDeleteUser = (userId: string) => {
       if (!firestore) return;
       if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+      setProcessingUserId(userId);
       const docRef = doc(firestore, 'users', userId);
       deleteDoc(docRef)
         .then(() => toast({ title: "User Deleted", description: "The user document has been removed." }))
@@ -347,12 +356,14 @@ export default function AdminPage() {
                 path: docRef.path,
                 operation: 'delete',
             }));
-        });
+        })
+        .finally(() => setProcessingUserId(null));
   };
 
   const handleArchiveProperty = (propertyId: string) => {
     if (!firestore) return;
     if (!window.confirm("Are you sure you want to archive this property? It will be hidden from public view but not permanently deleted.")) return;
+    setProcessingPropertyId(propertyId);
     const docRef = doc(firestore, 'properties', propertyId);
     const data = { listingStatus: 'archived' };
     updateDoc(docRef, data)
@@ -364,7 +375,8 @@ export default function AdminPage() {
                 operation: 'update',
                 requestResourceData: data,
             }));
-        });
+        })
+        .finally(() => setProcessingPropertyId(null));
   };
   
   const handleMarkAsSoldRented = (propertyId: string, currentStatus: string) => {
@@ -374,6 +386,7 @@ export default function AdminPage() {
 
       const isForRent = property.listingFor === 'Rent';
       const newStatus = currentStatus === 'sold' || currentStatus === 'rented' ? 'approved' : (isForRent ? 'rented' : 'sold');
+      setProcessingPropertyId(propertyId);
       const docRef = doc(firestore, 'properties', propertyId);
       const data = { listingStatus: newStatus };
 
@@ -386,7 +399,8 @@ export default function AdminPage() {
                 operation: 'update',
                 requestResourceData: data,
             }));
-        });
+        })
+        .finally(() => setProcessingPropertyId(null));
   };
 
   const handleUserCsvDownload = () => {
@@ -599,8 +613,8 @@ export default function AdminPage() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" disabled={processingUserId === user.id}>
+                            {processingUserId === user.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -610,16 +624,19 @@ export default function AdminPage() {
                             </Link>
                         </DropdownMenuItem>
                          <DropdownMenuItem 
+                            disabled={processingUserId === user.id}
                             className={cn("cursor-pointer", user.isBanned ? "text-green-600 focus:text-green-600" : "text-orange-600 focus:text-orange-600")}
                             onClick={() => handleBlockUser(user.id, user.isBanned || false)}
                          >
-                             <Ban className="mr-2 h-4 w-4" /> {user.isBanned ? 'Unban User' : 'Ban User'}
+                             {processingUserId === user.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
+                             {user.isBanned ? 'Unban User' : 'Ban User'}
                          </DropdownMenuItem>
                         <DropdownMenuItem 
+                            disabled={processingUserId === user.id}
                             className="text-red-600 focus:text-red-600 cursor-pointer"
                             onClick={() => handleDeleteUser(user.id)}
                         >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete User
+                            {processingUserId === user.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete User
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -659,11 +676,11 @@ export default function AdminPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={() => handleApprove(prop.id)}>
-                          <CheckCircle className="mr-1 h-4 w-4" /> Approve
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={() => handleApprove(prop.id)} disabled={processingPropertyId === prop.id}>
+                          {processingPropertyId === prop.id ? <LoaderCircle className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4" />} Approve
                         </Button>
-                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleReject(prop.id)}>
-                          <XCircle className="mr-1 h-4 w-4" /> Reject
+                        <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleReject(prop.id)} disabled={processingPropertyId === prop.id}>
+                          {processingPropertyId === prop.id ? <LoaderCircle className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />} Reject
                         </Button>
                       </div>
                     </TableCell>
@@ -762,8 +779,8 @@ export default function AdminPage() {
                     <TableCell className="text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled={isGeneratingPdf && pdfProperty?.property.id === prop.id}>
-                                {isGeneratingPdf && pdfProperty?.property.id === prop.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                            <Button variant="ghost" size="icon" disabled={(isGeneratingPdf && pdfProperty?.property.id === prop.id) || processingPropertyId === prop.id}>
+                                {(isGeneratingPdf && pdfProperty?.property.id === prop.id) || processingPropertyId === prop.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -775,22 +792,24 @@ export default function AdminPage() {
                             <DropdownMenuItem 
                                 className="cursor-pointer"
                                 onClick={() => handleMarkAsSoldRented(prop.id, prop.listingStatus)}
+                                disabled={processingPropertyId === prop.id}
                             >
-                                <CheckCircle className="mr-2 h-4 w-4" />
+                                {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                                 {prop.listingStatus === 'sold' || prop.listingStatus === 'rented' ? 'Mark as Available' : 'Mark as Sold/Rented'}
                             </DropdownMenuItem>
                              <DropdownMenuItem 
                                 className="cursor-pointer"
                                 onClick={() => handleDownloadPdfClick(prop)}
-                                disabled={isGeneratingPdf}
+                                disabled={isGeneratingPdf || processingPropertyId === prop.id}
                             >
-                                <Download className="mr-2 h-4 w-4" />Download PDF
+                                {isGeneratingPdf && pdfProperty?.property.id === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Download PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="text-orange-600 focus:text-orange-600 cursor-pointer"
                                 onClick={() => handleArchiveProperty(prop.id)}
+                                disabled={processingPropertyId === prop.id}
                             >
-                                <Archive className="mr-2 h-4 w-4" />Archive
+                                {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}Archive
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
