@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -61,6 +61,8 @@ export default function SignupPage() {
       await updateProfile(user, {
         displayName: values.name,
       });
+
+      await sendEmailVerification(user);
       
       // Now create the user document in Firestore
       await setDoc(doc(firestore, "users", user.uid), {
@@ -77,7 +79,7 @@ export default function SignupPage() {
 
       toast({
         title: "Account Created",
-        description: "You have been successfully signed up.",
+        description: "A verification email has been sent. Please check your inbox.",
       });
       router.push('/dashboard');
 

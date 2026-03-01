@@ -3,11 +3,40 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useUser } from "@/firebase";
+import { useUser, useAuth } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
+import { sendEmailVerification } from 'firebase/auth';
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle, AlertCircle, LoaderCircle } from "lucide-react";
+import { useState } from 'react';
 
 export default function ProfilePage() {
   const { user } = useUser();
+  const auth = useAuth();
+  const { toast } = useToast();
+  const [isResending, setIsResending] = useState(false);
+
+  const handleResendVerification = async () => {
+    if (!user || !auth) return;
+    setIsResending(true);
+    try {
+      await sendEmailVerification(user);
+      toast({
+        title: "Email Sent",
+        description: "A new verification email has been sent to your address.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error Sending Email",
+        description: error.message,
+      });
+    } finally {
+      setIsResending(false);
+    }
+  };
+
 
   if (!user) {
     // This should technically be handled by the layout's auth protection
@@ -22,6 +51,18 @@ export default function ProfilePage() {
     <div>
       <h1 className="text-3xl font-bold mb-6">My Profile</h1>
       <div className="grid gap-6 max-w-2xl">
+         {!user.emailVerified && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Email Not Verified</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              Please check your inbox to verify your email address.
+              <Button variant="link" onClick={handleResendVerification} disabled={isResending} className="p-0 h-auto">
+                {isResending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : "Resend Email"}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>Personal Information</CardTitle>
@@ -34,7 +75,18 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue={user.email || ''} disabled />
+               <div className="flex items-center gap-2">
+                <Input id="email" type="email" defaultValue={user.email || ''} disabled />
+                {user.emailVerified ? (
+                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                        <CheckCircle className="h-4 w-4 mr-1"/> Verified
+                    </Badge>
+                ) : (
+                     <Badge variant="destructive">
+                        <AlertCircle className="h-4 w-4 mr-1"/> Unverified
+                    </Badge>
+                )}
+              </div>
             </div>
              <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
