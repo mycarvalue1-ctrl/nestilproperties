@@ -1,10 +1,12 @@
 
+
 export type PropertyOwner = {
-  id: string;
+  id?: string; // This is not consistently available. Often it's the user ID.
   name: string;
   phone: string;
   isAgent: boolean;
   verified: boolean;
+  whatsAppAvailable?: boolean;
 };
 
 export type Property = {

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -223,22 +224,30 @@
       "type": "object",
       "description": "Stores sensitive contact and owner information for a property, accessible only to authenticated users.",
       "properties": {
-        "ownerName": {
-          "type": "string"
+        "name": {
+          "type": "string",
+          "description": "The name of the property contact (owner or agent)."
         },
-        "ownerPhone": {
-          "type": "string"
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the property contact."
         },
-        "ownerIsAgent": {
-          "type": "boolean"
+        "isAgent": {
+          "type": "boolean",
+          "description": "Indicates if the contact is an agent."
         },
-        "ownerVerified": {
-          "type": "boolean"
+        "verified": {
+          "type": "boolean",
+          "description": "Indicates if the contact's details are verified."
+        },
+        "whatsAppAvailable": {
+          "type": "boolean",
+          "description": "Indicates if the contact is available on WhatsApp."
         }
       },
       "required": [
-        "ownerName",
-        "ownerPhone"
+        "name",
+        "phone"
       ]
     },
     "Amenity": {

@@ -344,8 +344,8 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                     vehicleParking: data.vehicleParking,
                     existingPhotos: data.photos,
                     photos: [],
-                    ownerName: privateData?.ownerName || '',
-                    mobile: privateData?.ownerPhone || '',
+                    ownerName: privateData?.name || '',
+                    mobile: privateData?.phone || '',
                     whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
                     postedBy: data.postedByType,
                     details: {
@@ -522,10 +522,10 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     };
 
     const privateDocData = {
-        ownerName: values.ownerName,
-        ownerPhone: values.mobile,
-        ownerIsAgent: values.postedBy === 'Agent',
-        ownerVerified: true, // Assuming verification,
+        name: values.ownerName,
+        phone: values.mobile,
+        isAgent: values.postedBy === 'Agent',
+        verified: true, // Assuming verification
         whatsAppAvailable: values.whatsAppAvailable,
     };
     
