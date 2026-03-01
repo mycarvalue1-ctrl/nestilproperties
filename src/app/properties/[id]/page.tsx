@@ -91,7 +91,7 @@ export default function PropertyDetailPage() {
 
   const propertyRef = useMemoFirebase(() => {
     if (!firestore || !params.id) return null;
-    return doc(firestore, 'properties', params.id);
+    return doc(firestore, 'public_properties', params.id);
   }, [firestore, params.id]);
 
   const { data: property, isLoading: isPropertyLoading } = useDoc<Property>(propertyRef);

@@ -55,7 +55,7 @@ function PropertyList() {
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
-    let q: Query<Property> = query(collection(firestore, 'properties'), where('isApproved', '==', true)) as Query<Property>;
+    let q: Query<Property> = query(collection(firestore, 'public_properties')) as Query<Property>;
 
     // Transaction filter
     const transaction = searchParams.get('transaction');

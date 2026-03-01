@@ -29,10 +29,9 @@ function RecentListings() {
   const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     
-    // Always query for approved properties on the public homepage
+    // Query the public_properties collection for recent, approved listings.
     return query(
-      collection(firestore, 'properties'),
-      where('isApproved', '==', true),
+      collection(firestore, 'public_properties'),
       orderBy('dateAdded', 'desc'),
       limit(6)
     );

@@ -303,16 +303,16 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         setIsEditing(true);
         setPropertyId(editId);
         const fetchPropertyData = async () => {
-            const publicDocRef = doc(firestore, 'properties', editId);
+            const userPropDocRef = doc(firestore, 'user_properties', user.uid, editId);
             const privateDocRef = doc(firestore, 'propertyPrivateDetails', editId);
 
-            const [publicDocSnap, privateDocSnap] = await Promise.all([
-                getDoc(publicDocRef),
+            const [userPropDocSnap, privateDocSnap] = await Promise.all([
+                getDoc(userPropDocRef),
                 getDoc(privateDocRef),
             ]);
 
-            if (publicDocSnap.exists()) {
-                const data = publicDocSnap.data();
+            if (userPropDocSnap.exists()) {
+                const data = userPropDocSnap.data();
                 if (data.ownerId !== user.uid) {
                     toast({ variant: 'destructive', title: 'Unauthorized', description: "You don't have permission to edit this property." });
                     router.push('/dashboard/my-properties');
@@ -481,7 +481,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         bedsValue = 1;
     }
 
-    const publicDocData = {
+    const userPropertyData = {
       title: values.title,
       description: values.description,
       propertyType: values.propertyType,
@@ -532,9 +532,9 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     const batch = writeBatch(firestore);
 
     if (isEditing && propertyId) {
-      const publicDocRef = doc(firestore, 'properties', propertyId);
-      batch.update(publicDocRef, {
-          ...publicDocData,
+      const userPropDocRef = doc(firestore, 'user_properties', user.uid, propertyId);
+      batch.update(userPropDocRef, {
+          ...userPropertyData,
           listingStatus: 'pending', // Reset status on edit to require re-approval
           isApproved: false,
       });
@@ -542,12 +542,12 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
       batch.set(privateDocRef, privateDocData, { merge: true });
     } else {
-      const publicCollectionRef = collection(firestore, 'properties');
-      const newPublicDocRef = doc(publicCollectionRef); // Create a reference with a new ID
+      const userPropsCollectionRef = collection(firestore, 'user_properties', user.uid);
+      const newUserPropDocRef = doc(userPropsCollectionRef); // Create a reference with a new ID
 
-      batch.set(newPublicDocRef, {
-          ...publicDocData,
-          id: newPublicDocRef.id,
+      batch.set(newUserPropDocRef, {
+          ...userPropertyData,
+          id: newUserPropDocRef.id,
           postedAt: serverTimestamp(),
           dateAdded: new Date().toISOString(),
           isApproved: false,
@@ -558,7 +558,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
           nearbyPlaces: [],
       });
 
-      const privateDocRef = doc(firestore, 'propertyPrivateDetails', newPublicDocRef.id);
+      const privateDocRef = doc(firestore, 'propertyPrivateDetails', newUserPropDocRef.id);
       batch.set(privateDocRef, privateDocData);
     }
 
@@ -574,9 +574,9 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       .catch((error) => {
         console.error('Error processing property: ', error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: isEditing && propertyId ? `properties/${propertyId}` : 'properties',
+          path: isEditing && propertyId ? `user_properties/${user.uid}/${propertyId}` : `user_properties/${user.uid}`,
           operation: isEditing ? 'update' : 'create',
-          requestResourceData: { ...publicDocData, ...privateDocData },
+          requestResourceData: { ...userPropertyData, ...privateDocData },
         }));
       })
       .finally(() => {

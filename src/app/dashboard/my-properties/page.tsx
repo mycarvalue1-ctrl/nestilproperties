@@ -147,7 +147,7 @@ export default function MyPropertiesPage() {
 
   const userPropertiesQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, 'properties'), where('ownerId', '==', user.uid));
+    return collection(firestore, 'user_properties', user.uid);
   }, [user, firestore]);
 
   const { data: userProperties, isLoading } = useCollection<Property>(userPropertiesQuery);
@@ -196,31 +196,36 @@ export default function MyPropertiesPage() {
   }
 
   const handleDeleteProperty = (propertyId: string) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     if (!window.confirm("Are you sure you want to permanently delete this property? This action cannot be undone.")) return;
 
-    const publicDocRef = doc(firestore, 'properties', propertyId);
-    const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
+    // A user can only delete from their own user_properties collection.
+    // A Cloud Function would be needed to then delete the corresponding doc from public_properties.
+    const userPropRef = doc(firestore, 'user_properties', user.uid, propertyId);
     
-    // In a real app, you might want to use a batch write here
-    deleteDoc(publicDocRef)
-      .then(() => deleteDoc(privateDocRef))
-      .then(() => toast({ title: "Property Deleted", description: "The property has been permanently removed." }))
+    deleteDoc(userPropRef)
+      .then(() => {
+          // We can't delete from propertyPrivateDetails here if rules prevent it,
+          // but we attempt it. This should also be handled by a Cloud Function.
+          const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
+          deleteDoc(privateDocRef);
+          toast({ title: "Property Deleted", description: "The property has been removed from your listings." });
+      })
       .catch((error) => {
         console.error("Error deleting property:", error);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: publicDocRef.path,
+          path: userPropRef.path,
           operation: 'delete',
         }));
       });
   };
 
   const handleToggleAvailability = (property: Property) => {
-      if (!firestore) return;
+      if (!firestore || !user) return;
       
       const isRentedOrSold = property.listingStatus === 'sold' || property.listingStatus === 'rented';
       const newStatus = isRentedOrSold ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
-      const docRef = doc(firestore, 'properties', property.id);
+      const docRef = doc(firestore, 'user_properties', user.uid, property.id);
       const data = { listingStatus: newStatus };
       
       updateDoc(docRef, data)

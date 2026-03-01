@@ -14,7 +14,7 @@ export default function DashboardPage() {
 
   const userPropertiesQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, 'properties'), where('ownerId', '==', user.uid));
+    return collection(firestore, 'user_properties', user.uid);
   }, [user, firestore]);
 
   const { data: userProperties, isLoading } = useCollection<Property>(userPropertiesQuery);
