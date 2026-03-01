@@ -152,8 +152,19 @@ export default function AdminPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
+  // DEBUGGING: Log the firestore instance and user
+  if (typeof window !== 'undefined') {
+    console.log('AdminPage: Firestore instance:', firestore);
+    console.log('AdminPage: Current user:', currentUser);
+  }
+  
   const adminEmail = 'helpnestil@gmail.com';
   const isAdmin = currentUser?.email === adminEmail;
+
+  // DEBUGGING: Log admin status
+  if (typeof window !== 'undefined') {
+    console.log('AdminPage: isAdmin check:', isAdmin);
+  }
 
   const pdfRef = useRef<HTMLDivElement>(null);
   const [pdfProperty, setPdfProperty] = useState<{ property: Property, owner: PropertyOwner } | null>(null);
