@@ -21,13 +21,15 @@ import type { Property } from '@/lib/types';
 import { useFavorites } from '@/hooks/use-favorites';
 
 
-function LoggedInHome() {
+function RecentListings() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { favoriteIds, toggleFavorite, isLoadingFavorites } = useFavorites();
 
   const recentPropertiesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (isUserLoading || !firestore) {
+      return null; // Don't build query until auth state is known
+    }
 
     const isAdmin = user?.email === 'helpnestil@gmail.com';
     let q = query(
@@ -36,16 +38,17 @@ function LoggedInHome() {
       limit(6)
     );
 
-    // Only apply the 'approved' filter if the user is not an admin
+    // If user is not an admin (this includes logged-out users),
+    // they can only see approved properties.
     if (!isAdmin) {
       q = query(q, where('isApproved', '==', true));
     }
 
     return q;
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]); // Add isUserLoading dependency
 
   const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
-  const isLoading = isLoadingFavorites || isLoadingProperties;
+  const isLoading = isLoadingFavorites || isLoadingProperties || isUserLoading;
 
   return (
       <section className="py-16 md:py-24 bg-background">
@@ -146,7 +149,7 @@ export default function Home() {
         </div>
       </section>
 
-      <LoggedInHome />
+      <RecentListings />
 
       <section className="py-16 md:py-24 bg-secondary/50">
         <div className="container">
