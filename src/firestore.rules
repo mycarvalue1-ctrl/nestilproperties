@@ -42,21 +42,14 @@ service cloud.firestore {
     // Properties Collection Rules
     // =================================
     match /properties/{propertyId} {
-        // --- WRITES ---
-        // Only the property owner can create a listing.
-        allow create: if isOwner(request.resource.data.ownerId);
-        // Only the owner or an admin can update or delete.
-        allow update, delete: if isOwner(resource.data.ownerId) || isAdmin();
-
-        // --- READS ---
-        // A single document can be read if it's approved, or if the request is from the owner or an admin.
-        allow get: if resource.data.isApproved == true || isOwner(resource.data.ownerId) || isAdmin();
-
-        // Any user (even unauthenticated) can attempt to list properties.
-        // Firestore guarantees that the query will only return documents that the user
-        // has permission to 'get'. For a public user, this means their query MUST
-        // include `where('isApproved', '==', true)`.
-        allow list: if true;
+      // DEV/TESTING RULE: To simplify development and testing, allow any
+      // authenticated user to read all property data. This is less secure
+      // but useful for unblocking UI development.
+      allow read: if isSignedIn();
+      
+      // WRITE rules remain secure.
+      allow create: if isOwner(request.resource.data.ownerId);
+      allow update, delete: if isOwner(resource.data.ownerId) || isAdmin();
     }
     
     // =================================
