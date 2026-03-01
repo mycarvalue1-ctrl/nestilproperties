@@ -265,7 +265,7 @@ function Filters() {
 
           <div className="space-y-2">
             <Label>Price Range (₹)</Label>
-            <Slider defaultValue={[minPrice, maxPrice]} max={50000000} step={100000} onValueChangeCommitted={(v) => handleSliderChange('Price', v)} />
+            <Slider defaultValue={[minPrice, maxPrice]} max={50000000} step={100000} onValueCommit={(v) => handleSliderChange('Price', v)} />
             <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{minPrice.toLocaleString('en-IN')}</span>
                 <span>{maxPrice.toLocaleString('en-IN')}{maxPrice >= 50000000 && '+'}</span>
@@ -274,7 +274,7 @@ function Filters() {
           
           <div className="space-y-2">
             <Label>Size (sq ft)</Label>
-            <Slider defaultValue={[minSize, maxSize]} max={10000} step={100} onValueChangeCommitted={(v) => handleSliderChange('Size', v)} />
+            <Slider defaultValue={[minSize, maxSize]} max={10000} step={100} onValueCommit={(v) => handleSliderChange('Size', v)} />
             <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{minSize.toLocaleString('en-IN')}</span>
                 <span>{maxSize.toLocaleString('en-IN')}{maxSize >= 10000 && '+'}</span>
