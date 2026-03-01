@@ -27,13 +27,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
-import type { User as AppUser, Property } from "@/lib/types";
+import type { User as AppUser, Property, PropertyOwner } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { collection, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, query, where, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -57,11 +57,11 @@ function AdminSkeleton() {
 }
 
 // PDF Template Component - This will be rendered off-screen
-const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, innerRef: React.Ref<HTMLDivElement> }) => {
-    if (!property) return null;
+const PropertyPdfCard = ({ property, owner, innerRef }: { property: Property | null, owner: PropertyOwner | null, innerRef: React.Ref<HTMLDivElement> }) => {
+    if (!property || !owner) return null;
 
     const photoUrl = (property.photos && property.photos.length > 0) ? property.photos[0] : 'https://placehold.co/800x600/e2e8f0/e2e8f0?text=No+Image';
-    const maskedPhone = property.owner?.phone ? `******${property.owner.phone.slice(-4)}` : 'N/A';
+    const maskedPhone = owner.phone ? `******${owner.phone.slice(-4)}` : 'N/A';
 
     return (
         <div ref={innerRef} className="w-[595px] bg-white text-gray-800 fixed -z-10 -left-[9999px] font-sans">
@@ -130,8 +130,8 @@ const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, in
                 <footer className="mt-auto p-6 bg-secondary/30">
                     <div className="flex justify-between items-center">
                          <div>
-                            <p className="font-bold text-lg text-primary">Contact {property.owner?.isAgent ? 'Agent' : 'Owner'}</p>
-                            <p className="text-foreground">{property.owner?.name} - {maskedPhone}</p>
+                            <p className="font-bold text-lg text-primary">Contact {owner.isAgent ? 'Agent' : 'Owner'}</p>
+                            <p className="text-foreground">{owner.name} - {maskedPhone}</p>
                          </div>
                          <div className="text-right">
                             <p className="text-xs text-muted-foreground">Property ID: {property.id}</p>
@@ -155,7 +155,7 @@ export default function AdminPage() {
   const isAdmin = currentUser?.email === adminEmail;
 
   const pdfRef = useRef<HTMLDivElement>(null);
-  const [pdfProperty, setPdfProperty] = useState<Property | null>(null);
+  const [pdfProperty, setPdfProperty] = useState<{ property: Property, owner: PropertyOwner } | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [userSearch, setUserSearch] = useState('');
@@ -180,7 +180,7 @@ export default function AdminPage() {
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`${pdfProperty.title.replace(/\s/g, '_')}_nestil.pdf`);
+                pdf.save(`${pdfProperty.property.title.replace(/\s/g, '_')}_nestil.pdf`);
 
                 toast({
                     title: "PDF Generated",
@@ -202,9 +202,20 @@ export default function AdminPage() {
     generatePdf();
   }, [pdfProperty, toast]);
 
-  const handleDownloadPdfClick = (property: Property) => {
-    if (isGeneratingPdf) return;
-    setPdfProperty(property);
+  const handleDownloadPdfClick = async (property: Property) => {
+    if (isGeneratingPdf || !firestore) return;
+    setIsGeneratingPdf(true);
+
+    const privateDocRef = doc(firestore, 'propertyPrivateDetails', property.id);
+    const privateDocSnap = await getDoc(privateDocRef);
+
+    if (privateDocSnap.exists()) {
+        const owner = privateDocSnap.data() as PropertyOwner;
+        setPdfProperty({ property, owner });
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not find owner details for this property.' });
+        setIsGeneratingPdf(false);
+    }
   }
 
   useEffect(() => {
@@ -392,7 +403,7 @@ export default function AdminPage() {
         }
     });
 
-    const headers = ['id', 'title', 'listingFor', 'propertyType', 'price', 'city', 'address', 'pincode', 'areaSqFt', 'bhk', 'listingStatus', 'dateAdded', 'ownerId', 'ownerName', 'ownerPhone'];
+    const headers = ['id', 'title', 'listingFor', 'propertyType', 'price', 'city', 'address', 'pincode', 'areaSqFt', 'bhk', 'listingStatus', 'dateAdded', 'ownerId'];
     
     const escapeCsvCell = (cell: string | number | boolean | undefined | null) => {
       if (cell === null || cell === undefined) return '';
@@ -418,9 +429,7 @@ export default function AdminPage() {
         prop.bhk,
         prop.listingStatus,
         prop.dateAdded,
-        prop.owner?.id,
-        prop.owner?.name,
-        prop.owner?.phone,
+        prop.ownerId,
       ].map(v => escapeCsvCell(v)).join(','))
     ].join('\n');
 
@@ -449,7 +458,7 @@ export default function AdminPage() {
 
   return (
     <div className="container py-12">
-      <PropertyPdfCard property={pdfProperty} innerRef={pdfRef} />
+      <PropertyPdfCard property={pdfProperty?.property || null} owner={pdfProperty?.owner || null} innerRef={pdfRef} />
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground">
@@ -598,7 +607,7 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Property</TableHead>
-                <TableHead className="hidden sm:table-cell">Owner</TableHead>
+                <TableHead className="hidden sm:table-cell">Owner ID</TableHead>
                 <TableHead className="hidden md:table-cell">Date Added</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -608,7 +617,7 @@ export default function AdminPage() {
                 pendingProperties.map((prop) => (
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{prop.owner?.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{prop.ownerId}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {formatDate(prop.dateAdded)}
                     </TableCell>
@@ -685,7 +694,7 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Property</TableHead>
-                <TableHead className="hidden sm:table-cell">Owner</TableHead>
+                <TableHead className="hidden sm:table-cell">Owner ID</TableHead>
                 <TableHead className="hidden md:table-cell">Price</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Manage</TableHead>
@@ -696,8 +705,7 @@ export default function AdminPage() {
                   <TableRow key={prop.id}>
                     <TableCell className="font-medium">{prop.title}</TableCell>
                     <TableCell className="hidden sm:table-cell">
-                        <div>{prop.owner?.name}</div>
-                        <div className="text-xs text-muted-foreground">{prop.owner?.phone}</div>
+                        <div>{prop.ownerId}</div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">₹{prop.price.toLocaleString('en-IN')}</TableCell>
                     <TableCell>
@@ -718,8 +726,8 @@ export default function AdminPage() {
                     <TableCell className="text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled={isGeneratingPdf}>
-                                {isGeneratingPdf && pdfProperty?.id === prop.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                            <Button variant="ghost" size="icon" disabled={isGeneratingPdf && pdfProperty?.property.id === prop.id}>
+                                {isGeneratingPdf && pdfProperty?.property.id === prop.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

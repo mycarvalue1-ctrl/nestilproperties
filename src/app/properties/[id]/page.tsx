@@ -9,7 +9,7 @@ import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, Bad
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useMemo } from 'react';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import type { Property, SiteVisit } from '@/lib/types';
+import type { Property, PropertyOwner, SiteVisit } from '@/lib/types';
 import { addDoc, collection, doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -79,6 +79,8 @@ export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const [isContactVisible, setIsContactVisible] = useState(false);
   const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
+  const [privateDetails, setPrivateDetails] = useState<PropertyOwner | null>(null);
+  const [isLoadingPrivate, setIsLoadingPrivate] = useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -122,10 +124,15 @@ export default function PropertyDetailPage() {
       return;
     }
 
-    if (!firestore || !property?.ownerId) return;
+    if (!firestore || !property?.ownerId || !params.id) return;
     
     // Users can view their own listings for free
     if (user.uid === property.ownerId) {
+        setIsLoadingPrivate(true);
+        const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
+        const docSnap = await getDoc(privateDocRef);
+        if (docSnap.exists()) setPrivateDetails(docSnap.data() as PropertyOwner);
+        setIsLoadingPrivate(false);
         setIsContactVisible(true);
         toast({
             title: "Contact Revealed",
@@ -140,32 +147,43 @@ export default function PropertyDetailPage() {
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
+        let hasAccess = false;
 
         // Check for active subscription first
         if (userData.subscriptionEndDate) {
             const subEndDate = new Date(userData.subscriptionEndDate);
             if (subEndDate > new Date()) {
-                setIsContactVisible(true);
+                hasAccess = true;
                 toast({
                     title: "Contact Revealed",
                     description: "You have an active unlimited plan.",
                 });
-                return; // User has active subscription, no need to check credits
             }
         }
 
-        if (userData.credits && userData.credits > 0) {
-          // Deduct credit and show info
-          await updateDoc(userDocRef, {
-            credits: increment(-1)
-          });
-          setIsContactVisible(true);
+        // If no subscription, check for credits
+        if (!hasAccess && userData.credits && userData.credits > 0) {
+          await updateDoc(userDocRef, { credits: increment(-1) });
+          hasAccess = true;
           toast({
             title: "Credit Spent!",
             description: `You have ${userData.credits - 1} credits remaining.`,
           });
+        }
+        
+        if (hasAccess) {
+            setIsLoadingPrivate(true);
+            const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
+            const docSnap = await getDoc(privateDocRef);
+            if(docSnap.exists()) {
+                setPrivateDetails(docSnap.data() as PropertyOwner);
+                setIsContactVisible(true);
+            } else {
+                toast({ variant: "destructive", title: "Error", description: "Contact details for this property are missing." });
+            }
+            setIsLoadingPrivate(false);
         } else {
-          // No credits
+          // No credits or subscription
           toast({
             variant: "destructive",
             title: "No Credits or Active Subscription",
@@ -174,20 +192,11 @@ export default function PropertyDetailPage() {
           router.push('/buy-credits');
         }
       } else {
-        // This case can happen if the user document wasn't created on signup
-        toast({
-          variant: "destructive",
-          title: "Profile Error",
-          description: "Your user profile could not be found. Please contact support.",
-        });
+        toast({ variant: "destructive", title: "Profile Error", description: "Your user profile could not be found." });
       }
     } catch (error) {
       console.error("Error checking credits/subscription: ", error);
-      toast({
-        variant: "destructive",
-        title: "An Error Occurred",
-        description: "Could not verify your plan.",
-      });
+      toast({ variant: "destructive", title: "An Error Occurred", description: "Could not verify your plan." });
     }
   };
 
@@ -247,12 +256,12 @@ export default function PropertyDetailPage() {
                 <span>{property.address}, {property.city}, {property.pincode}</span>
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
-                {property.owner?.verified && !property.owner?.isAgent && (
+                {privateDetails?.verified && !privateDetails?.isAgent && (
                     <Badge variant="default" className="text-base font-medium bg-green-100 text-green-800 border-green-200">
                         <BadgeCheck className="mr-1.5 h-5 w-5" /> Verified Owner
                     </Badge>
                 )}
-                {property.owner?.verified && property.owner?.isAgent && (
+                {privateDetails?.verified && privateDetails?.isAgent && (
                     <Badge variant="secondary" className="text-base font-medium">
                         <BadgeCheck className="mr-1.5 h-5 w-5" /> Verified Agent
                     </Badge>
@@ -411,8 +420,8 @@ export default function PropertyDetailPage() {
                                 <p className="text-muted-foreground">Reveal owner details to contact them directly or schedule a visit.</p>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                <Button onClick={handleShowContact} className="w-full" size="lg">
-                                    <Eye className="mr-2 h-5 w-5" />
+                                <Button onClick={handleShowContact} className="w-full" size="lg" disabled={isLoadingPrivate}>
+                                    {isLoadingPrivate ? <LoaderCircle className="mr-2 h-5 w-5 animate-spin"/> : <Eye className="mr-2 h-5 w-5" />}
                                     Show Contact Info
                                 </Button>
                                 <Dialog open={isVisitDialogOpen} onOpenChange={setIsVisitDialogOpen}>
@@ -529,22 +538,22 @@ export default function PropertyDetailPage() {
                     ) : (
                         <>
                             <CardHeader>
-                                <CardTitle>Contact {property.owner?.isAgent ? "Agent" : "Owner"}</CardTitle>
-                                <p className="text-xl font-bold text-primary">{property.owner?.name || 'Owner Name'}</p>
+                                <CardTitle>Contact {privateDetails?.isAgent ? "Agent" : "Owner"}</CardTitle>
+                                <p className="text-xl font-bold text-primary">{privateDetails?.name || 'Owner Name'}</p>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="text-center p-4 bg-muted rounded-lg">
                                     <p className="text-sm text-muted-foreground">Phone Number</p>
-                                    <p className="text-2xl font-bold tracking-widest">{property.owner?.phone || 'N/A'}</p>
+                                    <p className="text-2xl font-bold tracking-widest">{privateDetails?.phone || 'N/A'}</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button asChild size="lg">
-                                        <a href={`tel:${property.owner?.phone}`}>
+                                        <a href={`tel:${privateDetails?.phone}`}>
                                             <Phone className="mr-2 h-5 w-5" /> Call
                                         </a>
                                     </Button>
                                     <Button asChild size="lg" variant="accent">
-                                        <a href={`https://wa.me/${(property.owner?.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
+                                        <a href={`https://wa.me/${(privateDetails?.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
                                            <WhatsappIcon /> WhatsApp
                                         </a>
                                     </Button>

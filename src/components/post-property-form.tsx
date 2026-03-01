@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import ImageKit from 'imagekit-javascript';
 
@@ -262,16 +262,23 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         setIsEditing(true);
         setPropertyId(editId);
         const fetchPropertyData = async () => {
-            const docRef = doc(firestore, 'properties', editId);
-            const docSnap = await getDoc(docRef);
+            const publicDocRef = doc(firestore, 'properties', editId);
+            const privateDocRef = doc(firestore, 'propertyPrivateDetails', editId);
 
-            if (docSnap.exists()) {
-                const data = docSnap.data();
+            const [publicDocSnap, privateDocSnap] = await Promise.all([
+                getDoc(publicDocRef),
+                getDoc(privateDocRef),
+            ]);
+
+            if (publicDocSnap.exists()) {
+                const data = publicDocSnap.data();
                 if (data.ownerId !== user.uid) {
                     toast({ variant: 'destructive', title: 'Unauthorized', description: "You don't have permission to edit this property." });
                     router.push('/dashboard/my-properties');
                     return;
                 }
+
+                const privateData = privateDocSnap.exists() ? privateDocSnap.data() : null;
 
                 form.reset({
                     propertyType: data.propertyType,
@@ -295,10 +302,10 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                     vehicleParking: data.vehicleParking,
                     existingPhotos: data.photos,
                     photos: [],
-                    ownerName: data.owner?.name,
-                    mobile: data.owner?.phone,
-                    whatsAppAvailable: data.owner?.whatsAppAvailable ?? true,
-                    postedBy: data.owner?.isAgent ? 'Agent' : 'Owner',
+                    ownerName: privateData?.ownerName || '',
+                    mobile: privateData?.ownerPhone || '',
+                    whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
+                    postedBy: data.postedByType,
                     details: {
                         bhk: data.bhk,
                         bathrooms: String(data.baths || ''),
@@ -369,7 +376,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) {
+    if (!user || !firestore) {
       toast({
         variant: "destructive",
         title: "Authentication Error",
@@ -422,7 +429,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
           bedsValue = 1;
       }
 
-      const docData = {
+      const publicDocData = {
         title: values.title,
         description: values.description,
         propertyType: values.propertyType,
@@ -457,27 +464,41 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         vehicleParking: values.vehicleParking,
         photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
         ownerId: user.uid,
-        owner: {
-          id: user.uid,
-          name: values.ownerName,
-          phone: values.mobile,
-          isAgent: values.postedBy === 'Agent',
-          verified: true,
-        },
+        postedByType: values.postedBy,
         updatedAt: serverTimestamp(),
       };
+
+      const privateDocData = {
+          ownerName: values.ownerName,
+          ownerPhone: values.mobile,
+          ownerIsAgent: values.postedBy === 'Agent',
+          ownerVerified: true, // Assuming verification,
+          whatsAppAvailable: values.whatsAppAvailable,
+      };
       
-      if (isEditing && propertyId && firestore) {
-        const docRef = doc(firestore, 'properties', propertyId);
-        await updateDoc(docRef, {
-            ...docData,
+      if (isEditing && propertyId) {
+        const batch = writeBatch(firestore);
+        const publicDocRef = doc(firestore, 'properties', propertyId);
+        batch.update(publicDocRef, {
+            ...publicDocData,
             listingStatus: 'pending', // Reset status on edit to require re-approval
             isApproved: false,
         });
+
+        const privateDocRef = doc(firestore, 'propertyPrivateDetails', propertyId);
+        batch.set(privateDocRef, privateDocData, { merge: true });
+
+        await batch.commit();
         toast({ title: "Update Successful!", description: "Your property has been updated and sent for re-approval." });
-      } else if (firestore) {
-         await addDoc(collection(firestore, 'properties'), {
-            ...docData,
+      } else {
+        const publicCollectionRef = collection(firestore, 'properties');
+        const newPublicDocRef = doc(publicCollectionRef); // Create a reference with a new ID
+
+        const batch = writeBatch(firestore);
+
+        batch.set(newPublicDocRef, {
+            ...publicDocData,
+            id: newPublicDocRef.id,
             postedAt: serverTimestamp(),
             dateAdded: new Date().toISOString(),
             isApproved: false,
@@ -487,6 +508,11 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             isUrgent: false,
             nearbyPlaces: [],
         });
+
+        const privateDocRef = doc(firestore, 'propertyPrivateDetails', newPublicDocRef.id);
+        batch.set(privateDocRef, privateDocData);
+        
+        await batch.commit();
         toast({ title: "Submission Successful!", description: "Your property has been submitted for approval." });
       }
 

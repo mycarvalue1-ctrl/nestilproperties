@@ -38,21 +38,39 @@ service cloud.firestore {
     }
 
     // =================================
-    // Properties Collection Rules
+    // Properties Collection Rules (Public Data)
     // =================================
     match /properties/{propertyId} {
-      // --- ADMINS ---
-      // Admins have full read and write access to all properties.
-      allow read, write: if isAdmin();
-      
-      // --- OWNERS ---
-      // An owner can create, update, or delete their own property documents.
-      allow create, update, delete: if isOwner(request.resource.data.ownerId);
-      
-      // --- LOGGED-IN USERS ---
-      // Any signed-in user can view properties.
-      // Client-side queries MUST filter by listingStatus for public vs. owner views.
-      allow read: if isSignedIn();
+      // --- READS ---
+      // Anyone can GET a document if it's approved. Owners/Admins can get their own regardless of status.
+      allow get: if resource.data.listingStatus == 'approved' 
+                  || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+                  || isAdmin();
+
+      // Anyone can LIST approved properties.
+      // Client queries MUST include `where('listingStatus', '==', 'approved')` for public users.
+      // This rule works in tandem with the 'get' rule, which is checked on every doc in the result set.
+      allow list: if true;
+
+      // --- WRITES ---
+      // Only signed-in users can create a property, and they must be the owner.
+      allow create: if isOwner(request.resource.data.ownerId);
+
+      // Only the property owner or an admin can update or delete.
+      allow update, delete: if isOwner(resource.data.ownerId) || isAdmin();
+    }
+    
+    // =================================
+    // Property Private Details Rules
+    // =================================
+    match /propertyPrivateDetails/{propertyId} {
+        // Only a logged-in user can read the contact details.
+        // The app logic (credits/subscription) should be handled on the client.
+        allow read: if isSignedIn();
+
+        // Only the actual property owner or an admin can create/edit/delete private details.
+        // We use get() to look up the ownerId from the main properties collection.
+        allow write: if (isOwner(get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId) || isAdmin());
     }
 
 

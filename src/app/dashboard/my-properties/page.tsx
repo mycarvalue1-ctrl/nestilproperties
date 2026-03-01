@@ -7,8 +7,8 @@ import { Edit, MoreVertical, Trash, EyeOff, Eye, LoaderCircle, Download, Buildin
 import Image from "next/image";
 import Link from "next/link";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, deleteDoc, updateDoc } from "firebase/firestore";
-import type { Property } from '@/lib/types';
+import { collection, query, where, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import type { Property, PropertyOwner } from '@/lib/types';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState, useEffect } from "react";
 import jsPDF from 'jspdf';
@@ -16,11 +16,11 @@ import html2canvas from 'html2canvas';
 import { useToast } from "@/hooks/use-toast";
 
 // PDF Template Component - This will be rendered off-screen
-const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, innerRef: React.Ref<HTMLDivElement> }) => {
-    if (!property) return null;
+const PropertyPdfCard = ({ property, owner, innerRef }: { property: Property | null, owner: PropertyOwner | null, innerRef: React.Ref<HTMLDivElement> }) => {
+    if (!property || !owner) return null;
 
     const photoUrl = (property.photos && property.photos.length > 0) ? property.photos[0] : 'https://placehold.co/800x600/e2e8f0/e2e8f0?text=No+Image';
-    const maskedPhone = property.owner?.phone ? `******${property.owner.phone.slice(-4)}` : 'N/A';
+    const maskedPhone = owner.phone ? `******${owner.phone.slice(-4)}` : 'N/A';
 
     return (
         <div ref={innerRef} className="w-[595px] bg-white text-gray-800 fixed -z-10 -left-[9999px] font-sans">
@@ -89,8 +89,8 @@ const PropertyPdfCard = ({ property, innerRef }: { property: Property | null, in
                 <footer className="mt-auto p-6 bg-secondary/30">
                     <div className="flex justify-between items-center">
                          <div>
-                            <p className="font-bold text-lg text-primary">Contact {property.owner?.isAgent ? 'Agent' : 'Owner'}</p>
-                            <p className="text-foreground">{property.owner?.name} - {maskedPhone}</p>
+                            <p className="font-bold text-lg text-primary">Contact {owner.isAgent ? 'Agent' : 'Owner'}</p>
+                            <p className="text-foreground">{owner.name} - {maskedPhone}</p>
                          </div>
                          <div className="text-right">
                             <p className="text-xs text-muted-foreground">Property ID: {property.id}</p>
@@ -139,7 +139,7 @@ export default function MyPropertiesPage() {
   const { toast } = useToast();
 
   const pdfRef = useRef<HTMLDivElement>(null);
-  const [pdfProperty, setPdfProperty] = useState<Property | null>(null);
+  const [pdfProperty, setPdfProperty] = useState<{ property: Property, owner: PropertyOwner } | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const userPropertiesQuery = useMemoFirebase(() => {
@@ -162,7 +162,7 @@ export default function MyPropertiesPage() {
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`${pdfProperty.title.replace(/\s/g, '_')}_nestil.pdf`);
+                pdf.save(`${pdfProperty.property.title.replace(/\s/g, '_')}_nestil.pdf`);
 
                 toast({ title: "PDF Generated", description: "Your property PDF has been downloaded." });
             } catch (e) {
@@ -177,9 +177,19 @@ export default function MyPropertiesPage() {
     generatePdf();
   }, [pdfProperty, toast]);
 
-  const handleDownloadPdfClick = (property: Property) => {
-    if (isGeneratingPdf) return;
-    setPdfProperty(property);
+  const handleDownloadPdfClick = async (property: Property) => {
+    if (isGeneratingPdf || !firestore) return;
+    setIsGeneratingPdf(true);
+    const privateDocRef = doc(firestore, 'propertyPrivateDetails', property.id);
+    const privateDocSnap = await getDoc(privateDocRef);
+
+    if (privateDocSnap.exists()) {
+        const owner = privateDocSnap.data() as PropertyOwner;
+        setPdfProperty({ property, owner });
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not find owner details for this property.' });
+        setIsGeneratingPdf(false);
+    }
   }
 
   const handleDeleteProperty = async (propertyId: string) => {
@@ -188,6 +198,8 @@ export default function MyPropertiesPage() {
 
     try {
         await deleteDoc(doc(firestore, 'properties', propertyId));
+        // Also delete the private details
+        await deleteDoc(doc(firestore, 'propertyPrivateDetails', propertyId));
         toast({ title: "Property Deleted", description: "The property has been permanently removed." });
     } catch (error) {
         console.error("Error deleting property:", error);
@@ -230,7 +242,7 @@ export default function MyPropertiesPage() {
 
   return (
     <div className="w-full">
-      <PropertyPdfCard property={pdfProperty} innerRef={pdfRef} />
+      <PropertyPdfCard property={pdfProperty?.property || null} owner={pdfProperty?.owner || null} innerRef={pdfRef} />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">My Properties</h1>
         <Button asChild>
@@ -273,8 +285,8 @@ export default function MyPropertiesPage() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled={isGeneratingPdf && pdfProperty?.id === prop.id}>
-                        {isGeneratingPdf && pdfProperty?.id === prop.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                    <Button variant="ghost" size="icon" disabled={isGeneratingPdf && pdfProperty?.property.id === prop.id}>
+                        {isGeneratingPdf && pdfProperty?.property.id === prop.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

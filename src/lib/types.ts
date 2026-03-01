@@ -1,4 +1,12 @@
 
+export type PropertyOwner = {
+  id: string;
+  name: string;
+  phone: string;
+  isAgent: boolean;
+  verified: boolean;
+};
+
 export type Property = {
   id: string;
   title: string;
@@ -11,13 +19,6 @@ export type Property = {
   pincode: string;
   description: string;
   photos: string[];
-  owner: {
-    id: string;
-    name: string;
-    phone: string;
-    isAgent: boolean;
-    verified: boolean;
-  };
   amenities: string[];
   nonVegAllowed?: boolean;
   vehicleParking?: string;
@@ -38,6 +39,7 @@ export type Property = {
 
   // Fields from form that were missing
   ownerId: string;
+  postedByType: 'Owner' | 'Agent' | 'Builder';
   listingFor: 'Rent' | 'Sale' | 'Lease';
   negotiable?: boolean;
   maintenance?: number;
@@ -84,6 +86,3 @@ export type SiteVisit = {
   visitorName: string;
   visitorPhone: string;
 };
-    
-
-    
