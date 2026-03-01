@@ -9,6 +9,7 @@ import {
   QuerySnapshot,
   CollectionReference,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useUser } from '@/firebase/provider';
@@ -96,6 +97,21 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+
+        // If a permission error occurs and the user is now logged out,
+        // we can assume it's a cleanup error from a previous subscription.
+        // We'll log a warning instead of throwing a fatal error.
+        if (err.code === 'permission-denied' && !currentUser) {
+          console.warn('A Firestore query failed after logout. This is often expected as old data listeners are cleaned up.');
+          setError(err); // Set local error state for debugging, but don't crash.
+          setData(null);
+          setIsLoading(false);
+          // Do NOT emit a global error in this case.
+          return;
+        }
+        
         const path = (effectiveQuery as InternalQuery)._query?.path?.canonicalString() || (effectiveQuery as CollectionReference).path;
         const contextualError = new FirestorePermissionError({
           operation: 'list',
