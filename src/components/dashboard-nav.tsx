@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
-import { User, LogOut, LayoutGrid, List, Coins, CalendarCheck, Heart } from 'lucide-react';
+import { User, LogOut, LayoutGrid, List, CalendarCheck, Heart } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -25,7 +25,6 @@ export function DashboardNav() {
     { href: '/dashboard/my-properties', label: 'My Properties', icon: List },
     { href: '/dashboard/visit-requests', label: 'Visit Requests', icon: CalendarCheck },
     { href: '/favorites', label: 'Favorites', icon: Heart },
-    { href: '/buy-credits', label: 'Buy Credits', icon: Coins },
     { href: '/dashboard/profile', label: 'Profile Settings', icon: User },
   ];
 
