@@ -9,7 +9,7 @@ import {
   FirestoreError,
   DocumentSnapshot,
 } from 'firebase/firestore';
-import { useUser } from '@/firebase';
+import { useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 
 type WithId<T> = T & { id: string };
 
@@ -53,7 +53,17 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        console.error("useDoc error:", err);
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'get',
+            })
+          );
+        } else {
+          console.error("useDoc error:", err);
+        }
         setError(err);
         setData(null);
         setIsLoading(false);

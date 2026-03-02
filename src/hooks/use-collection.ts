@@ -8,8 +8,9 @@ import {
   DocumentData,
   FirestoreError,
   QuerySnapshot,
+  CollectionReference,
 } from 'firebase/firestore';
-import { useUser } from '@/firebase';
+import { useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 
 export type WithId<T> = T & { id: string };
 
@@ -53,7 +54,20 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        console.error("useCollection error:", err);
+        if (err.code === 'permission-denied') {
+          // The query object might be a CollectionReference, which has a path.
+          // We cast to 'any' to access it, providing a fallback for other query types.
+          const path = (query as any).path || 'unknown_collection';
+          errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+              path: path,
+              operation: 'list',
+            })
+          );
+        } else {
+          console.error('useCollection error:', err);
+        }
         setError(err);
         setData(null);
         setIsLoading(false);
