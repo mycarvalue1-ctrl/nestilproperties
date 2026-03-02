@@ -52,7 +52,7 @@ function PropertyList() {
     if (!firestore) return null;
 
     // Simplified query: fetch all approved properties. Filtering will be done on the client.
-    return query(collection(firestore, 'properties'), where('isApproved', '==', true));
+    return query(collection(firestore, 'properties'), where('listingStatus', '==', 'approved'));
   }, [firestore]);
 
   const { data: allApprovedProperties, isLoading: isLoadingProperties } = useCollection<Property>(propertiesQuery);
@@ -312,3 +312,5 @@ export default function PropertiesPage() {
     </div>
   );
 }
+
+    

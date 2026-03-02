@@ -99,7 +99,7 @@ export default function PropertyDetailPage() {
     return <PropertyDetailSkeleton />;
   }
 
-  if (!property || !property.isApproved) {
+  if (!property || property.listingStatus !== 'approved') {
     return (
         <div className="container py-10">
           <h1 className="text-2xl font-bold">Property Not Available</h1>
@@ -122,7 +122,7 @@ export default function PropertyDetailPage() {
                 <span>{property.address}, {property.city}, {property.pincode}</span>
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
-                {property.isApproved && (
+                {property.listingStatus === 'approved' && (
                     <Badge variant="default" className="text-base font-medium bg-green-100 text-green-800 border-green-200">
                         <BadgeCheck className="mr-1.5 h-5 w-5" /> Verified by Nestil
                     </Badge>
@@ -312,3 +312,5 @@ export default function PropertyDetailPage() {
     </div>
   );
 }
+
+    

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -245,7 +244,7 @@ export default function AdminPage() {
       return <AdminSkeleton />;
   }
 
-  const activeListings = allProperties?.filter(p => p.isApproved).length || 0;
+  const activeListings = allProperties?.filter(p => p.listingStatus === 'approved').length || 0;
   const soldRentedCount = allProperties?.filter(p => p.listingStatus === 'sold' || p.listingStatus === 'rented').length || 0;
   const propertiesCount = allProperties?.length || 0;
 
@@ -604,3 +603,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

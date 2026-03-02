@@ -17,17 +17,17 @@ service cloud.firestore {
     match /properties/{propertyId} {
       // READ (get a single document)
       // Allow if property is approved, OR if the reader is the owner, OR if the reader is an admin.
-      allow get: if (resource.data.isApproved == true) || 
+      allow get: if (resource.data.listingStatus == 'approved') || 
                     (resource.data.ownerId != null && isOwner(resource.data.ownerId)) || 
                     isAdmin();
 
       // LIST (query for documents)
       // Allow if user is an admin (can see all), OR if a user is querying for their own properties,
       // OR if a public user is querying for approved properties.
-      // This rule enforces that public queries MUST filter by `isApproved == true`.
+      // This rule enforces that public queries MUST filter by `listingStatus == 'approved'`.
       allow list: if isAdmin() ||
                    (request.auth != null && request.query.where[0] == 'ownerId' && request.query.where[1] == '==' && request.query.where[2] == request.auth.uid) ||
-                   (request.query.where[0] == 'isApproved' && request.query.where[1] == '==' && request.query.where[2] == true);
+                   (request.query.where[0] == 'listingStatus' && request.query.where[1] == '==' && request.query.where[2] == 'approved');
 
       // CREATE: An authenticated user can create a property for themselves.
       // Rule enforces that the ownerId in the document matches the user's UID and the property starts as unapproved.
@@ -58,3 +58,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

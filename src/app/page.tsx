@@ -30,7 +30,7 @@ function RecentListings() {
     // to avoid needing a composite index in Firestore, which can cause server errors.
     return query(
       collection(firestore, 'properties'),
-      where('isApproved', '==', true)
+      where('listingStatus', '==', 'approved')
     );
   }, [firestore]);
 
@@ -256,3 +256,5 @@ export default function Home() {
     </>
   );
 }
+
+    
