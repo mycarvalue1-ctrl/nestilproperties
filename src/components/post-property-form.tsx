@@ -149,6 +149,20 @@ const FormSection = ({ title, description, children, className }: { title: strin
     </Card>
 );
 
+export function FormSkeleton() {
+    return (
+        <div className="container py-12 max-w-4xl mx-auto space-y-8">
+            <div className="text-center space-y-2">
+                <Skeleton className="h-9 w-72 mx-auto" />
+                <Skeleton className="h-5 w-96 mx-auto" />
+            </div>
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-80 w-full" />
+        </div>
+    )
+}
+
 export function PostPropertyFormComponent({ editId }: { editId: string | null }) {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);

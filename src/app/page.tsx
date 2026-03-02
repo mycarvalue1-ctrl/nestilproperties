@@ -23,18 +23,33 @@ import type { Property } from '@/lib/types';
 function RecentListings() {
   const firestore = useFirestore();
 
-  const recentPropertiesQuery = useMemoFirebase(() => {
+  const approvedPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     
+    // Fetch all approved properties. We will sort and limit on the client
+    // to avoid needing a composite index in Firestore, which can cause server errors.
     return query(
       collection(firestore, 'properties'),
-      where('isApproved', '==', true),
-      orderBy('dateAdded', 'desc'),
-      limit(6)
+      where('isApproved', '==', true)
     );
   }, [firestore]);
 
-  const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
+  const { data: approvedProperties, isLoading: isLoadingProperties } = useCollection<Property>(approvedPropertiesQuery);
+
+  const recentProperties = useMemo(() => {
+    if (!approvedProperties) return [];
+    // Sort on the client to get the most recent listings.
+    return [...approvedProperties]
+      .sort((a, b) => {
+        try {
+          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
+        } catch (e) {
+          return 0;
+        }
+      })
+      .slice(0, 6);
+  }, [approvedProperties]);
+
   const isLoading = isLoadingProperties;
 
   return (
@@ -58,7 +73,7 @@ function RecentListings() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {recentProperties?.map((prop) => (
+                {recentProperties.map((prop) => (
                   <PropertyCard
                     key={prop.id}
                     property={prop}
