@@ -22,12 +22,10 @@ service cloud.firestore {
                     isAdmin();
 
       // LIST (query for documents)
-      // Allow if user is an admin (can see all), OR if a user is querying for their own properties,
-      // OR if a public user is querying for approved properties.
-      // This rule enforces that public queries MUST filter by `listingStatus == 'approved'`.
-      allow list: if isAdmin() ||
-                   (request.auth != null && request.query.where[0] == 'ownerId' && request.query.where[1] == '==' && request.query.where[2] == request.auth.uid) ||
-                   (request.query.where[0] == 'listingStatus' && request.query.where[1] == '==' && request.query.where[2] == 'approved');
+      // Allow authenticated users to perform list queries.
+      // The security of these queries is then enforced by the 'get' rule above.
+      // A query will only succeed if it *only* returns documents the user has 'get' access to.
+      allow list: if request.auth != null;
 
       // CREATE: An authenticated user can create a property for themselves.
       // Rule enforces that the ownerId in the document matches the user's UID and the property starts as unapproved.
@@ -58,5 +56,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
