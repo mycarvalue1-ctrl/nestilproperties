@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { PropertyCard, PropertyCardSkeleton } from '@/components/property-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building, Home as HomeIcon, Search, Trees, User, LogIn } from 'lucide-react';
+import { Building, Home as HomeIcon, Search, Trees, User, LogIn, Briefcase } from 'lucide-react';
 import Link from 'next/link';
 import { locationData } from '@/lib/locations';
 import {
@@ -23,7 +23,6 @@ import type { Property } from '@/lib/types';
 function RecentListings() {
   const firestore = useFirestore();
 
-  // This is the critical part. The query MUST ONLY filter by status. No orderBy.
   const approvedPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
@@ -170,8 +169,8 @@ export default function Home() {
               Find properties that match your needs.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
-            <Link href="/properties?type=House&status=For%20Rent" className="group">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+            <Link href="/properties?type=House&transaction=Rent" className="group">
               <Card className="overflow-hidden hover:shadow-xl transition-shadow border-none">
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center bg-card h-full">
                   <div className="bg-secondary p-4 rounded-full mb-3">
@@ -183,7 +182,7 @@ export default function Home() {
                 </CardContent>
               </Card>
             </Link>
-            <Link href="/properties?type=House&status=For%20Sale" className="group">
+            <Link href="/properties?type=House&transaction=Sale" className="group">
               <Card className="overflow-hidden hover:shadow-xl transition-shadow border-none">
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center bg-card h-full">
                   <div className="bg-secondary p-4 rounded-full mb-3">
@@ -191,6 +190,30 @@ export default function Home() {
                   </div>
                   <h3 className="font-semibold group-hover:text-accent">
                     Buy House
+                  </h3>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/properties?type=Apartment" className="group">
+              <Card className="overflow-hidden hover:shadow-xl transition-shadow border-none">
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center bg-card h-full">
+                  <div className="bg-secondary p-4 rounded-full mb-3">
+                    <Building className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold group-hover:text-accent">
+                    Apartments
+                  </h3>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/properties?type=Villa" className="group">
+              <Card className="overflow-hidden hover:shadow-xl transition-shadow border-none">
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center bg-card h-full">
+                  <div className="bg-secondary p-4 rounded-full mb-3">
+                    <HomeIcon className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold group-hover:text-accent">
+                    Villas
                   </h3>
                 </CardContent>
               </Card>
@@ -211,7 +234,7 @@ export default function Home() {
               <Card className="overflow-hidden hover:shadow-xl transition-shadow border-none">
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center bg-card h-full">
                   <div className="bg-secondary p-4 rounded-full mb-3">
-                    <Building className="h-8 w-8 text-primary" />
+                    <Briefcase className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="font-semibold group-hover:text-accent">
                     Commercial
@@ -265,5 +288,3 @@ export default function Home() {
     </>
   );
 }
-
-    
