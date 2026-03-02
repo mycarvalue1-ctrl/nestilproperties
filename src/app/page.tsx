@@ -23,33 +23,34 @@ import type { Property } from '@/lib/types';
 function RecentListings() {
   const firestore = useFirestore();
 
+  // This is the critical part. The query MUST ONLY filter by status. No orderBy.
   const approvedPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    
-    // Fetch all approved properties. We will sort and limit on the client
-    // to avoid needing a composite index in Firestore, which can cause server errors.
     return query(
       collection(firestore, 'properties'),
       where('listingStatus', '==', 'approved')
     );
   }, [firestore]);
 
-  const { data: approvedProperties, isLoading: isLoadingProperties } = useCollection<Property>(approvedPropertiesQuery);
+  const { data: allApprovedProperties, isLoading: isLoadingProperties } = useCollection<Property>(approvedPropertiesQuery);
 
+  // Sorting and limiting is done here, on the client, after data is fetched.
   const recentProperties = useMemo(() => {
-    if (!approvedProperties) return [];
-    // Sort on the client to get the most recent listings.
-    return [...approvedProperties]
+    if (!allApprovedProperties) return [];
+    
+    return [...allApprovedProperties]
       .sort((a, b) => {
         try {
+          // Sort by dateAdded, newest first.
           return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
         } catch (e) {
+          // Fallback if date is invalid
           return 0;
         }
       })
-      .slice(0, 6);
-  }, [approvedProperties]);
-
+      .slice(0, 6); // Take only the first 6.
+  }, [allApprovedProperties]);
+  
   const isLoading = isLoadingProperties;
 
   return (
@@ -73,18 +74,26 @@ function RecentListings() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {recentProperties.map((prop) => (
-                  <PropertyCard
-                    key={prop.id}
-                    property={prop}
-                  />
-                ))}
+                {recentProperties.length > 0 ? (
+                  recentProperties.map((prop) => (
+                    <PropertyCard
+                      key={prop.id}
+                      property={prop}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-10">
+                    <p className="text-muted-foreground">No approved properties found at the moment. Check back later!</p>
+                  </div>
+                )}
               </div>
-              <div className="text-center mt-12">
-                <Button size="lg" asChild>
-                  <Link href="/properties">View All Properties</Link>
-                </Button>
-              </div>
+              {recentProperties.length > 0 && (
+                <div className="text-center mt-12">
+                    <Button size="lg" asChild>
+                    <Link href="/properties">View All Properties</Link>
+                    </Button>
+                </div>
+              )}
             </>
           )}
 
