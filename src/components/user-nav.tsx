@@ -16,7 +16,7 @@ import { signOut, sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, LayoutGrid, User as UserIcon, MailWarning, Shield } from 'lucide-react';
+import { LogOut, LayoutGrid, User as UserIcon, MailWarning, Shield, LogIn, UserPlus } from 'lucide-react';
 
 export function UserNav() {
   const { user, isUserLoading } = useUser();
@@ -52,10 +52,16 @@ export function UserNav() {
     return (
       <div className="flex items-center gap-2">
         <Button variant="ghost" asChild>
-          <Link href="/login">Log in</Link>
+          <Link href="/login">
+            <LogIn className="mr-2 h-4 w-4" />
+            Log in
+          </Link>
         </Button>
         <Button asChild>
-          <Link href="/signup">Sign Up</Link>
+          <Link href="/signup">
+            <UserPlus className="mr-2 h-4 w-4" />
+            Sign Up
+          </Link>
         </Button>
       </div>
     );
@@ -98,7 +104,7 @@ export function UserNav() {
 
         {!user.emailVerified && (
           <>
-            <DropdownMenuItem className="cursor-pointer" onClick={handleResendVerification}>
+            <DropdownMenuItem onClick={handleResendVerification} className="cursor-pointer">
               <MailWarning className="mr-2 h-4 w-4" />
               <span>Verify Email</span>
             </DropdownMenuItem>
