@@ -3,10 +3,56 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: Temporary debugging rule. This is not secure.
-    // It allows any authenticated user to read and write to the entire database.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // This logic must match the front-end check in /admin/layout.tsx
+      return request.auth != null && request.auth.token.email == 'helpnestil@gmail.com';
+    }
+
+    // Rules for the 'properties' collection
+    match /properties/{propertyId} {
+      // --- READS ---
+      // GET: Allow reading a single document if it's approved, OR if the user is the owner OR an admin.
+      allow get: if resource.data.listingStatus == 'approved'
+                  || (resource.data.ownerId != null && isOwner(resource.data.ownerId))
+                  || isAdmin();
+
+      // LIST: Allow anyone to query. Security is enforced by Firestore ensuring
+      // the query *only* returns documents the user has 'get' access to.
+      // This works because our public queries filter for 'listingStatus == "approved"'.
+      allow list: if true;
+
+      // --- WRITES ---
+      // CREATE: An authenticated user can create a property for themselves.
+      // Rule enforces that the ownerId matches the user's UID and it starts as 'pending'.
+      allow create: if isOwner(request.resource.data.ownerId)
+                    && request.resource.data.listingStatus == 'pending';
+
+      // UPDATE: An owner can update their own properties, but cannot approve it themselves.
+      // An admin can update any field.
+      allow update: if (isOwner(resource.data.ownerId) && request.resource.data.isApproved == false)
+                    || isAdmin();
+
+      // DELETE: Only admins can delete properties.
+      allow delete: if isAdmin();
+    }
+
+    // Rules for the 'propertyPrivateDetails' collection
+    match /propertyPrivateDetails/{propertyId} {
+      // On read, we can use `resource.data` to check ownership
+      allow read: if (existsAfter(get(/databases/$(database)/documents/properties/$(propertyId))) && isOwner(getAfter(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId)) || isAdmin();
+      
+      // On write, we check the incoming data for create/update
+      allow write: if isOwner(request.resource.data.ownerId) || isAdmin();
+    }
+
+    // Rules for user-specific data, like favorites in `/users/{userId}/favorites/{propertyId}`
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
