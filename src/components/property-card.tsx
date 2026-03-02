@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MapPin, Phone, BadgeCheck, Sparkles, Flame, BedDouble, Bath, Expand, Heart, Share2 } from 'lucide-react';
+import { MapPin, Phone, BadgeCheck, Sparkles, Flame, BedDouble, Bath, Expand, Heart, Share2, Clock, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { differenceInDays, parseISO } from 'date-fns';
@@ -61,6 +61,16 @@ export function PropertyCard({ property }: PropertyCardProps) {
                 <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
                     <BadgeCheck className="mr-1 h-3 w-3" /> Verified
                 </Badge>
+            )}
+            {property.listingStatus === 'pending' && (
+              <Badge variant="secondary">
+                <Clock className="mr-1 h-3 w-3" /> Pending
+              </Badge>
+            )}
+            {property.listingStatus === 'rejected' && (
+              <Badge variant="destructive">
+                <XCircle className="mr-1 h-3 w-3" /> Rejected
+              </Badge>
             )}
             {property.featured && (
                 <Badge variant="default" className="bg-accent text-accent-foreground">Featured</Badge>
