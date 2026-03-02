@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useToast } from './use-toast';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -32,7 +32,7 @@ export function useFavorites() {
       toast({
         title: 'Please log in',
         description: 'You need to be logged in to save favorites.',
-        action: <Button onClick={() => router.push(`/login?redirect=/properties/${propertyId}`)}>Login</Button>,
+        action: React.createElement(Button, { onClick: () => router.push(`/login?redirect=/properties/${propertyId}`) }, 'Login'),
       });
       return;
     }

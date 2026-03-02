@@ -15,14 +15,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, Search, User, LogIn } from 'lucide-react';
+import { Filter, Search } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, Query } from 'firebase/firestore';
+import { collection, query, where, Query } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
-import Link from 'next/link';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
@@ -52,73 +51,56 @@ function PropertyList() {
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
 
-    let q: Query<Property> = query(collection(firestore, 'properties'), where('isApproved', '==', true)) as Query<Property>;
+    // Simplified query: fetch all approved properties. Filtering will be done on the client.
+    return query(collection(firestore, 'properties'), where('isApproved', '==', true));
+  }, [firestore]);
 
-    // Transaction filter
-    const transaction = searchParams.get('transaction');
-    if (transaction && transaction !== 'all') {
-      q = query(q, where('listingFor', '==', transaction));
-    }
-
-    // Type filter
-    const types = searchParams.getAll('type');
-    const queryTypes = getQueryTypes(types);
-    if (queryTypes.length > 0) {
-      q = query(q, where('propertyType', 'in', queryTypes));
-    }
-
-    // Price range filter
-    const minPrice = Number(searchParams.get('minPrice') || 0);
-    const maxPrice = Number(searchParams.get('maxPrice') || 50000000);
-    if (minPrice > 0) {
-      q = query(q, where('price', '>=', minPrice));
-    }
-    if (maxPrice < 50000000) {
-      q = query(q, where('price', '<=', maxPrice));
-    }
-    
-    // Sorting
-    switch (sortOption) {
-      case 'price_asc':
-        q = query(q, orderBy('price', 'asc'));
-        break;
-      case 'price_desc':
-        q = query(q, orderBy('price', 'desc'));
-        break;
-      case 'newest':
-      default:
-        q = query(q, orderBy('dateAdded', 'desc'));
-        break;
-    }
-
-    return q;
-  }, [firestore, searchParams, sortOption]);
-
-  const { data: serverFilteredProperties, isLoading: isLoadingProperties } = useCollection<Property>(propertiesQuery);
+  const { data: allApprovedProperties, isLoading: isLoadingProperties } = useCollection<Property>(propertiesQuery);
   
   const clientSideFilteredProperties = useMemo(() => {
-    if (!serverFilteredProperties) return [];
+    if (!allApprovedProperties) return [];
 
+    const transaction = searchParams.get('transaction');
+    const types = searchParams.getAll('type');
+    const queryTypes = getQueryTypes(types);
+    const minPrice = Number(searchParams.get('minPrice') || 0);
+    const maxPrice = Number(searchParams.get('maxPrice') || 50000000);
     const minSize = Number(searchParams.get('minSize') || 0);
     const maxSize = Number(searchParams.get('maxSize') || 10000);
     const keyword = searchParams.get('keyword')?.toLowerCase() || '';
 
-    if (!keyword && minSize === 0 && maxSize === 10000) {
-        return serverFilteredProperties;
-    }
+    const filtered = allApprovedProperties.filter(p => {
+        const transactionMatch = !transaction || transaction === 'all' || p.listingFor === transaction;
+        const typeMatch = queryTypes.length === 0 || queryTypes.includes(p.propertyType);
+        
+        const priceOnReqMatch = p.priceOnRequest || false;
+        const priceMatch = priceOnReqMatch || (p.price >= minPrice && (maxPrice >= 50000000 ? true : p.price <= maxPrice));
 
-    return serverFilteredProperties.filter(p => {
-        const sizeMatch = p.areaSqFt >= minSize && p.areaSqFt <= maxSize;
-
+        const sizeMatch = p.areaSqFt >= minSize && (maxSize >= 10000 ? true : p.areaSqFt <= maxSize);
         const keywordMatch = !keyword || 
                                 p.title.toLowerCase().includes(keyword) || 
                                 p.address.toLowerCase().includes(keyword) ||
                                 p.city.toLowerCase().includes(keyword);
 
-        return sizeMatch && keywordMatch;
+        return transactionMatch && typeMatch && priceMatch && sizeMatch && keywordMatch;
     });
 
-  }, [serverFilteredProperties, searchParams]);
+    // Client-side sorting
+    return filtered.sort((a, b) => {
+        switch (sortOption) {
+            case 'price_asc':
+                return (a.price || 0) - (b.price || 0);
+            case 'price_desc':
+                return (b.price || 0) - (a.price || 0);
+            case 'newest':
+            default:
+                try {
+                    return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
+                } catch(e) { return 0; }
+        }
+    });
+
+  }, [allApprovedProperties, searchParams, sortOption]);
 
   const isLoading = isLoadingProperties;
 
