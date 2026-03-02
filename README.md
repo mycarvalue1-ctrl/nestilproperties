@@ -1,5 +1,12 @@
 # Nestil - Your Nearby Property Marketplace
 
-This is a NextJS starter in Firebase Studio.
+This is Version 1.0.0 of the Nestil application.
 
-To get started, take a look at src/app/page.tsx.
+It includes the following core features:
+- User authentication (Sign up, Login, Logout)
+- Property listing creation and management
+- Admin dashboard for property approval
+- Public property search and filtering
+- 'Verified by Nestil' status for approved properties
+
+Built with Next.js, Firebase, and ShadCN UI.
