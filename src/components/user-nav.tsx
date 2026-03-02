@@ -45,25 +45,36 @@ export function UserNav() {
   };
 
   if (isUserLoading) {
-    return <div className="h-10 w-24 rounded-md bg-muted animate-pulse" />;
+    return <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />;
   }
 
   if (!user) {
     return (
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" asChild>
-          <Link href="/login">
-            <LogIn className="mr-2 h-4 w-4" />
-            Log in
-          </Link>
-        </Button>
-        <Button asChild>
-          <Link href="/signup">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Sign Up
-          </Link>
-        </Button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+            <Avatar className="h-10 w-10 border">
+              <AvatarFallback className="bg-background">
+                <UserIcon className="h-5 w-5" />
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/login">
+              <LogIn className="mr-2 h-4 w-4" />
+              <span>Log In</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/signup">
+              <UserPlus className="mr-2 h-4 w-4" />
+              <span>Sign Up</span>
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
@@ -104,7 +115,7 @@ export function UserNav() {
 
         {!user.emailVerified && (
           <>
-            <DropdownMenuItem onClick={handleResendVerification} className="cursor-pointer">
+            <DropdownMenuItem onClick={handleResendVerification} className="cursor-pointer text-destructive focus:text-destructive">
               <MailWarning className="mr-2 h-4 w-4" />
               <span>Verify Email</span>
             </DropdownMenuItem>
