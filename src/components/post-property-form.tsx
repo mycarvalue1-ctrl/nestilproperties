@@ -381,13 +381,14 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     try {
       if (values.photos && values.photos.length > 0) {
         const imagekit = new ImageKit({
-            publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
-            urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
+            urlEndpoint: 'https://ik.imagekit.io/ilk0tj3rj',
+            authenticationEndpoint: '/api/imagekit/auth',
         });
-        const authRes = await fetch('/api/imagekit/auth');
-        if (!authRes.ok) throw new Error('Failed to authenticate with ImageKit.');
-        const authParams = await authRes.json();
-        const uploadPromises = values.photos.map(file => imagekit.upload({ file, fileName: file.name, ...authParams, folder: `/nestil/properties/${user.uid}/` }));
+        const uploadPromises = values.photos.map(file => imagekit.upload({
+            file,
+            fileName: file.name,
+            folder: `/nestil/properties/${user.uid}/`
+        }));
         const results = await Promise.all(uploadPromises);
         uploadedPhotoURLs = results.map(res => res.url);
       }
