@@ -2,10 +2,11 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { PropertyCard, PropertyCardSkeleton } from '@/components/property-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building, Home as HomeIcon, Search, Trees, User, LogIn, Briefcase } from 'lucide-react';
+import { Building, Home as HomeIcon, Search, Trees, Briefcase } from 'lucide-react';
 import Link from 'next/link';
 import { locationData } from '@/lib/locations';
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 
 
@@ -105,6 +106,9 @@ function RecentListings() {
 
 export default function Home() {
   const [shuffledLocalAreas, setShuffledLocalAreas] = useState<any[]>([]);
+  const [searchTab, setSearchTab] = useState('Rent');
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     const allLocalAreas =
@@ -120,6 +124,20 @@ export default function Home() {
     setShuffledLocalAreas(allLocalAreas.slice(0, 10));
   }, []); // Empty dependency array ensures this runs once on the client after mount.
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchKeyword) {
+        params.set('keyword', searchKeyword);
+    }
+    if (searchTab !== 'Plots') {
+        params.set('transaction', searchTab);
+    } else {
+        params.set('type', 'Plot');
+    }
+    router.push(`/properties?${params.toString()}`);
+  };
+
   return (
     <>
       <section className="py-20 md:py-24 bg-secondary/50 text-center">
@@ -132,21 +150,23 @@ export default function Home() {
           </p>
 
           <div className="max-w-3xl mx-auto mt-8">
-            <Tabs defaultValue="rent" className="w-full">
+            <Tabs defaultValue="Rent" onValueChange={setSearchTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-flex mx-auto">
-                <TabsTrigger value="rent">Rent</TabsTrigger>
-                <TabsTrigger value="buy">Buy</TabsTrigger>
-                <TabsTrigger value="plots">Plots</TabsTrigger>
+                <TabsTrigger value="Rent">Rent</TabsTrigger>
+                <TabsTrigger value="Sale">Buy</TabsTrigger>
+                <TabsTrigger value="Plots">Plots</TabsTrigger>
               </TabsList>
               <div className="mt-4 p-4 md:p-6 rounded-lg bg-background/80 backdrop-blur-sm border shadow-lg">
-                <form className="grid sm:grid-cols-4 items-center gap-4">
+                <form className="grid sm:grid-cols-4 items-center gap-4" onSubmit={handleSearch}>
                   <div className="sm:col-span-3">
                     <Input
-                      placeholder="Search for properties..."
+                      placeholder="Search by city, area, or property title..."
                       className="h-12 text-base"
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
                     />
                   </div>
-                  <Button size="lg" className="h-12 w-full text-base" variant="default">
+                  <Button type="submit" size="lg" className="h-12 w-full text-base" variant="default">
                     <Search className="mr-2 h-5 w-5" />
                     Search
                   </Button>
@@ -170,7 +190,7 @@ export default function Home() {
               Find properties that match your needs.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-8">
             <Link href="/properties?type=House&transaction=Rent" className="group">
               <Card className="overflow-hidden hover:shadow-xl transition-shadow border-none">
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center bg-card h-full">

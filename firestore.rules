@@ -33,8 +33,9 @@ service cloud.firestore {
                     && request.resource.data.listingStatus == 'pending';
 
       // UPDATE: An owner can update their own properties, but cannot approve it themselves.
+      // The app logic resets a property to 'pending' on any owner edit for re-review.
       // An admin can update any field.
-      allow update: if (isOwner(resource.data.ownerId) && request.resource.data.isApproved == false)
+      allow update: if (isOwner(resource.data.ownerId) && request.resource.data.listingStatus != 'approved')
                     || isAdmin();
 
       // DELETE: Only admins can delete properties.

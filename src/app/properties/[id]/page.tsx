@@ -1,24 +1,18 @@
 
 'use client';
 
-import { notFound, useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Eye, Car, Fish, Coins, Calendar as CalendarIcon, LoaderCircle } from 'lucide-react';
+import { BedDouble, Bath, Expand, MapPin, Building, School, Hospital, Phone, BadgeCheck, Sparkles, Flame, Car, Fish } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useMemo } from 'react';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Property, PropertyOwner } from '@/lib/types';
 import { doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { Textarea } from '@/components/ui/textarea';
-
 
 const WhatsappIcon = () => (
     <svg
@@ -101,11 +95,14 @@ export default function PropertyDetailPage() {
 
   if (!property || property.listingStatus !== 'approved') {
     return (
-        <div className="container py-10">
+        <div className="container py-10 text-center">
           <h1 className="text-2xl font-bold">Property Not Available</h1>
           <p className="text-muted-foreground mt-2">
             The property you are looking for is either not available or does not exist.
           </p>
+           <Button asChild className="mt-4">
+              <Link href="/properties">Browse Other Properties</Link>
+          </Button>
         </div>
     );
   }
