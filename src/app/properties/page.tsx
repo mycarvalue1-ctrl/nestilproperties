@@ -49,16 +49,24 @@ function PropertySearchComponent() {
     if (!allProperties) return [];
 
     return allProperties.filter(prop => {
-      const keywordMatch = keyword 
-        ? prop.title.toLowerCase().includes(keyword.toLowerCase()) || 
-          prop.address.toLowerCase().includes(keyword.toLowerCase()) ||
-          prop.city.toLowerCase().includes(keyword.toLowerCase())
+      // A property must exist and have a numeric price to be filterable.
+      if (!prop || typeof prop.price !== 'number') {
+        return false;
+      }
+
+      const keywordMatch = keyword
+        ? (prop.title?.toLowerCase() || '').includes(keyword.toLowerCase()) ||
+          (prop.address?.toLowerCase() || '').includes(keyword.toLowerCase()) ||
+          (prop.city?.toLowerCase() || '').includes(keyword.toLowerCase())
         : true;
-      
-      const transactionMatch = transaction !== 'all' ? prop.listingFor.toLowerCase() === transaction.toLowerCase() : true;
+
+      const transactionMatch =
+        transaction !== 'all'
+          ? (prop.listingFor?.toLowerCase() || '') === transaction.toLowerCase()
+          : true;
 
       const typeMatch = type !== 'all' ? prop.type === type : true;
-      
+
       const priceMatch = prop.price >= priceRange[0] && prop.price <= priceRange[1];
 
       return keywordMatch && transactionMatch && typeMatch && priceMatch;
@@ -197,4 +205,3 @@ export default function PropertiesPage() {
     </Suspense>
   )
 }
-firebase deploy
