@@ -381,7 +381,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     try {
       if (values.photos && values.photos.length > 0) {
         const imagekit = new ImageKit({
-            urlEndpoint: 'https://ik.imagekit.io/ilk0tj3rj',
+            urlEndpoint: process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT!,
             authenticationEndpoint: '/api/imagekit/auth',
         });
         const uploadPromises = values.photos.map(file => imagekit.upload({
