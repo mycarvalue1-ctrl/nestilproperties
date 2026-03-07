@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import Image from 'next/image';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -24,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, CalendarIcon, Sparkles, MapPin, X, LoaderCircle } from 'lucide-react';
+import { CalendarIcon, Sparkles, MapPin, LoaderCircle } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
@@ -49,7 +48,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, errorEmitter, FirestorePermissionError, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import ImageKit from 'imagekit-javascript';
 import { Skeleton } from './ui/skeleton';
 
 const amenitiesList = [
@@ -89,9 +87,7 @@ const formSchema = z.object({
   amenities: z.array(z.string()).optional(),
   nonVegAllowed: z.boolean().default(true),
   vehicleParking: z.string().optional(),
-  photos: z.array(z.any()).max(10, 'You can upload up to 10 photos.').optional(),
-  existingPhotos: z.array(z.string()).optional(),
-
+  photos: z.string().optional(),
 
   ownerName: z.string({ required_error: "Owner name is required." }).min(1, "Owner name is required."),
   mobile: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit mobile number."),
@@ -126,14 +122,6 @@ const formSchema = z.object({
           path: ['price'],
       });
   }
-  const totalPhotos = (data.existingPhotos?.length || 0) + (data.photos?.length || 0);
-  if (totalPhotos < 3) {
-      ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Please upload at least 3 photos.',
-          path: ['photos'],
-      });
-  }
 });
 
 
@@ -165,7 +153,6 @@ export function FormSkeleton() {
 
 export function PostPropertyFormComponent({ editId }: { editId: string | null }) {
   const { toast } = useToast();
-  const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -196,8 +183,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       amenities: [],
       nonVegAllowed: true,
       vehicleParking: 'None',
-      photos: [],
-      existingPhotos: [],
+      photos: '',
       ownerName: '',
       mobile: '',
       whatsAppAvailable: true,
@@ -304,8 +290,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                             amenities: data.amenities,
                             nonVegAllowed: data.nonVegAllowed,
                             vehicleParking: data.vehicleParking,
-                            existingPhotos: data.photos,
-                            photos: [],
+                            photos: data.photos ? data.photos.join(', ') : '',
                             ownerName: privateData?.name || '',
                             mobile: privateData?.phone || '',
                             whatsAppAvailable: privateData?.whatsAppAvailable ?? true,
@@ -345,31 +330,6 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     if (user) fetchPropertyData();
   }, [editId, firestore, form, router, toast, user]);
 
-  const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
-  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
-  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => { e.preventDefault(); e.stopPropagation(); };
-  const handleDrop = (e: React.DragEvent<HTMLLabelElement>, field: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          const filesArray = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
-          if (filesArray.length === 0) {
-              toast({ variant: "destructive", title: "Invalid file type", description: "Please upload only image files." });
-              return;
-          }
-          const currentFiles = field.value || [];
-          const currentExisting = form.getValues('existingPhotos') || [];
-          if (currentFiles.length + currentExisting.length + filesArray.length > 10) {
-              toast({ variant: "destructive", title: "Upload limit exceeded", description: "You can upload a maximum of 10 photos." });
-          } else {
-              field.onChange([...currentFiles, ...filesArray]);
-          }
-          e.dataTransfer.clearData();
-      }
-  };
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firestore || !user) {
       toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to post a property." });
@@ -377,30 +337,16 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     }
     setIsSubmitting(true);
 
-    let uploadedPhotoURLs: string[] = [];
-    try {
-      if (values.photos && values.photos.length > 0) {
-        const imagekit = new ImageKit({
-            publicKey: process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!,
-            urlEndpoint: 'https://ik.imagekit.io/ilk0tj3rj',
-            authenticationEndpoint: '/api/imagekit/auth',
-        });
-        const uploadPromises = values.photos.map(file => imagekit.upload({
-            file,
-            fileName: file.name,
-            folder: `/nestil/properties/${user.uid}/`
-        }));
-        const results = await Promise.all(uploadPromises);
-        uploadedPhotoURLs = results.map(res => res.url);
-      }
-    } catch(uploadError: any) {
-        console.error('Error uploading images: ', uploadError);
-        toast({ variant: 'destructive', title: 'Image Upload Failed', description: uploadError.message || 'Could not upload photos.' });
-        setIsSubmitting(false);
-        return;
+    const finalPhotos = values.photos
+      ? values.photos.split(',').map(url => url.trim()).filter(Boolean)
+      : [];
+
+    if (finalPhotos.length === 0) {
+      form.setError("photos", { type: "manual", message: "Please provide at least one image URL." });
+      setIsSubmitting(false);
+      return;
     }
       
-    const finalPhotos = [...(values.existingPhotos || []), ...uploadedPhotoURLs];
     const propertyData = {
       ownerId: user.uid,
       ownerName: values.ownerName,
@@ -417,7 +363,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       floor: values.details.floor, totalFloors: values.details.totalFloors, facing: values.details.facing, age: values.details.age,
       plotArea: values.details.plotArea, roadWidth: values.details.roadWidth, dtcpApproved: values.details.approved === 'Yes',
       amenities: values.amenities || [], nonVegAllowed: values.nonVegAllowed, vehicleParking: values.vehicleParking,
-      photos: finalPhotos.length > 0 ? finalPhotos : ['https://ik.imagekit.io/ilk0tj3rj/nestil/assets/no-image-placeholder.png'],
+      photos: finalPhotos.length > 0 ? finalPhotos : ['https://picsum.photos/seed/placeholder/800/600'],
       postedByType: values.postedBy,
       updatedAt: serverTimestamp(),
       ...(editId ? {} : { 
@@ -785,105 +731,24 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
             </div>
           </FormSection>
 
-          <FormSection title="Photos & Media" description="Listings with good quality photos get 5x more responses.">
+          <FormSection title="Photos" description="Add links to images of your property.">
             <FormField
               control={form.control}
               name="photos"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>Image URLs</FormLabel>
                   <FormControl>
-                    <div>
-                      <Label
-                        htmlFor="photo-upload"
-                        className={cn(
-                          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary block transition-colors",
-                          isDragging && "border-primary bg-primary/10"
-                        )}
-                        onDragEnter={handleDragEnter}
-                        onDragLeave={handleDragLeave}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, field)}
-                      >
-                        <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-2"/>
-                        <p className="font-semibold">Click or drag files here to upload</p>
-                        <p className="text-sm text-muted-foreground">Upload up to 10 photos. Max 25MB per file.</p>
-                      </Label>
-                      <Input
-                        id="photo-upload"
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files) {
-                            const filesArray = Array.from(e.target.files);
-                            const currentFiles = field.value || [];
-                            const currentExisting = form.getValues('existingPhotos') || [];
-                            if (currentFiles.length + currentExisting.length + filesArray.length > 10) {
-                              toast({
-                                variant: "destructive",
-                                title: "Upload limit exceeded",
-                                description: "You can upload a maximum of 10 photos.",
-                              });
-                            } else {
-                              field.onChange([...currentFiles, ...filesArray]);
-                            }
-                          }
-                        }}
-                      />
-                    </div>
+                    <Textarea
+                      placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                      rows={4}
+                      {...field}
+                    />
                   </FormControl>
+                  <FormDescription>
+                    Paste comma-separated URLs for your property photos. Provide at least one URL.
+                  </FormDescription>
                   <FormMessage />
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
-                      {form.getValues('existingPhotos')?.map((url: string, index: number) => (
-                          <div key={index} className="relative group">
-                            <Image
-                                src={url}
-                                alt={`existing photo ${index}`}
-                                width={150}
-                                height={150}
-                                className="w-full h-32 object-cover rounded-lg"
-                            />
-                            <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => {
-                                const newExisting = form.getValues('existingPhotos')?.filter((_: any, i: number) => i !== index);
-                                form.setValue('existingPhotos', newExisting);
-                                }}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                            </div>
-                      ))}
-                      {field.value?.map((file: File, index: number) => (
-                        <div key={index} className="relative group">
-                          <Image
-                            src={URL.createObjectURL(file)}
-                            alt={`preview ${index}`}
-                            width={150}
-                            height={150}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => {
-                              const newFiles = field.value?.filter((_: any, i: number) => i !== index);
-                              field.onChange(newFiles);
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-
                 </FormItem>
               )}
             />

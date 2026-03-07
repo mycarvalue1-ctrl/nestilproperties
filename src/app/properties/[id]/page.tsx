@@ -14,7 +14,6 @@ import type { Property, PropertyOwner } from '@/lib/types';
 import { doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { getTransformedImage } from '@/lib/utils';
 
 const WhatsappIcon = () => (
     <svg
@@ -156,7 +155,7 @@ export default function PropertyDetailPage() {
                     <Carousel className="w-full">
                       <CarouselContent>
                         {propertyPhotos.map((photo, index) => {
-                          const transformedUrl = getTransformedImage(photo, { width: 1280, height: 720, crop: 'at_max', quality: 80 });
+                          const transformedUrl = photo;
                           return (
                           <CarouselItem key={index}>
                             <div className="aspect-video relative">

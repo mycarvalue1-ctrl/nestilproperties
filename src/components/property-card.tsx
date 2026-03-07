@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { differenceInDays, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { cn, getTransformedImage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const WhatsappIcon = () => (
   <svg
@@ -53,7 +53,7 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
   };
   
   const imageUrl = (property.photos && property.photos[0]) || 'https://picsum.photos/seed/property/600/400';
-  const transformedImageUrl = getTransformedImage(imageUrl, { width: 600, height: 400, crop: 'at_max', quality: 80 });
+  const transformedImageUrl = imageUrl;
 
   return (
     <Card className="group w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col bg-card relative">

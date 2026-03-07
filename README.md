@@ -11,13 +11,12 @@ This application is built with a modern tech stack, featuring a Next.js frontend
 ## Core Features
 
 -   **User Authentication**: Secure sign-up, login, and logout functionality using Firebase Authentication (email/password). Includes email verification.
--   **Property Listings**: A multi-step form for property owners and agents to create detailed listings, including pricing, amenities, location, and photo uploads.
+-   **Property Listings**: A multi-step form for property owners and agents to create detailed listings, including pricing, amenities, location, and photo URLs.
 -   **Dynamic Search & Filtering**: A powerful property search page that allows users to filter by transaction type (rent/sale), property type, price, and size.
 -   **Admin Dashboard**: A protected area for administrators (`helpnestil@gmail.com`) to review, approve, or reject new property submissions.
 -   **Owner Dashboard**: A personal dashboard for users to view and manage their own property listings.
 -   **Favorites System**: Authenticated users can save properties to a personal "Favorites" list.
 -   **AI-Powered Descriptions**: Integrated Genkit flow to automatically generate compelling property descriptions based on listing details.
--   **Image Uploads**: Seamless image uploads to ImageKit via a secure, authenticated endpoint.
 -   **"Verified by Nestil"**: A status badge granted to properties approved by an admin, building trust with users.
 
 ## Tech Stack
@@ -26,7 +25,6 @@ This application is built with a modern tech stack, featuring a Next.js frontend
 -   **Backend**: [Firebase](https://firebase.google.com/) (Firestore, Authentication)
 -   **UI**: [ShadCN UI](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com/)
 -   **Generative AI**: [Firebase Genkit](https://firebase.google.com/docs/genkit)
--   **Image Management**: [ImageKit](https://imagekit.io/)
 -   **Form Handling**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
 -   **Deployment**: Ready for [Firebase App Hosting](https://firebase.google.com/docs/app-hosting)
 
@@ -56,7 +54,6 @@ This application is built with a modern tech stack, featuring a Next.js frontend
 2.  Enable **Firestore** and **Firebase Authentication** (with the Email/Password provider).
 3.  Go to Project Settings and copy your Firebase config object.
 4.  Paste your config into `src/firebase/config.ts`.
-5.  Set up your `.env` file with your ImageKit credentials.
 
 ### Running the Application
 
