@@ -1,4 +1,5 @@
 
+
 import type { Property } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
@@ -59,7 +60,6 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
   };
   
   const imageUrl = (property.photos && property.photos[0]) || 'https://picsum.photos/seed/property/600/400';
-  const transformedImageUrl = imageUrl;
 
   return (
     <Card className="group w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col bg-card relative">
@@ -67,7 +67,7 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
 
       <div className="relative">
         <Image
-          src={transformedImageUrl}
+          src={imageUrl}
           alt={`Photo of ${property.title}`}
           width={600}
           height={400}

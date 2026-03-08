@@ -741,15 +741,15 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                   <FormItem>
                       <FormControl>
                           <CldUploadWidget
-                              signatureEndpoint="/api/sign-cloudinary-params"
+                              uploadPreset="nestil_unsigned"
                               options={{
                                   sources: ['local', 'url'],
                                   multiple: true,
                                   folder: `nestil/properties/${user?.uid || 'unknown'}`
                               }}
                               onSuccess={(result: any) => {
-                                  if (result.event === 'success' && result.info?.public_id) {
-                                      const newUrl = result.info.public_id;
+                                  if (result.event === 'success' && result.info?.secure_url) {
+                                      const newUrl = result.info.secure_url;
                                       field.onChange([...(field.value || []), newUrl]);
                                       toast({ title: "Image Uploaded", description: "Your image has been added." });
                                   }
@@ -760,10 +760,10 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                                       {watchedPhotos && watchedPhotos.length > 0 ? (
                                           <div className="space-y-4">
                                               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                                                  {watchedPhotos.map((publicId, index) => (
+                                                  {watchedPhotos.map((url, index) => (
                                                       <div key={index} className="relative group">
                                                           <CldImage
-                                                              src={publicId}
+                                                              src={url}
                                                               alt={`Property image ${index + 1}`}
                                                               width={150}
                                                               height={100}

@@ -155,12 +155,11 @@ export default function PropertyDetailPage() {
                     <Carousel className="w-full">
                       <CarouselContent>
                         {propertyPhotos.map((photo, index) => {
-                          const transformedUrl = photo;
                           return (
                           <CarouselItem key={index}>
                             <div className="aspect-video relative">
                                 <Image
-                                  src={transformedUrl}
+                                  src={photo}
                                   alt={`${property.title} photo ${index + 1}`}
                                   fill
                                   className="object-cover"
