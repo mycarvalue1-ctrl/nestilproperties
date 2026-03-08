@@ -4,27 +4,13 @@
 import type { Property } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MapPin, Phone, BadgeCheck, Sparkles, Flame, BedDouble, Bath, Expand, Heart, Share2, Clock, XCircle } from 'lucide-react';
+import { MapPin, BadgeCheck, Star, BedDouble, Bath, Expand, Heart, Home } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { differenceInDays, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useFavorites } from '@/hooks/use-favorites';
-import { useState, useEffect } from 'react';
-
-const WhatsappIcon = () => (
-  <svg
-    role="img"
-    viewBox="0 0 24 24"
-    xmlns="http://www.w3.org/2000/svg"
-    className="h-4 w-4 fill-current"
-  >
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-  </svg>
-);
 
 interface PropertyCardProps {
   property: Property;
@@ -34,175 +20,147 @@ interface PropertyCardProps {
 export function PropertyCard({ property, priority = false }: PropertyCardProps) {
   const { toast } = useToast();
   const { favoriteIds, toggleFavorite } = useFavorites();
-  const ownerName = property.ownerName || property.postedByType;
 
   const isFavorited = favoriteIds.has(property.id);
-  const [isJustListed, setIsJustListed] = useState(false);
-
-  useEffect(() => {
-    const calculateJustListed = () => {
-      if (!property.dateAdded) return false;
-      try {
-        if (typeof property.dateAdded !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(property.dateAdded)) {
-          return false;
-        }
-        const date = parseISO(property.dateAdded);
-        if (isNaN(date.getTime())) {
-          return false;
-        }
-        return differenceInDays(new Date(), date) <= 3;
-      } catch (error) {
-        console.warn(`Invalid date format for property ${property.id}:`, property.dateAdded);
-        return false;
-      }
-    };
-    setIsJustListed(calculateJustListed());
-  }, [property.dateAdded, property.id]);
-  
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     toggleFavorite(property.id, isFavorited);
   };
-
-  const handleShareClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-      return;
-    }
-
-    const shareData = {
-      title: property.title,
-      text: `Check out this property on Nestil: ${property.title}`,
-      url: `${window.location.origin}/properties/${property.id}`
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.url);
-        toast({ title: 'Link Copied!', description: 'Property link copied to clipboard.' });
-      }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        console.error('Failed to share: ', err);
-        toast({
-          variant: 'destructive',
-          title: 'Share Failed',
-          description: 'Could not share the property link.',
-        });
-      }
-    }
-  };
   
   const validPhotos = (property.photos || []).filter(p => p && !p.includes('ik.imagekit.io'));
   const imageUrl = validPhotos.length > 0 ? validPhotos[0] : 'https://picsum.photos/seed/property/600/400';
 
-  return (
-    <Card className="group w-full overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col bg-card relative">
-      <Link href={`/properties/${property.id}`} className="absolute inset-0 z-10" aria-label={property.title} />
+  const renderBadge = () => {
+    if (property.featured) {
+        return (
+            <Badge variant="destructive" className="absolute top-3 left-3 z-10 flex items-center gap-1">
+                <Star className="h-3 w-3" /> FEATURED
+            </Badge>
+        );
+    }
+    if (property.listingFor === 'Sale') {
+        return <Badge variant="default" className="absolute top-3 left-3 z-10">FOR SALE</Badge>;
+    }
+    if (property.listingFor === 'Rent') {
+        // Using outline with custom green colors to stay closer to theme, as there's no green variant.
+        return <Badge variant="outline" className="absolute top-3 left-3 z-10 border-green-600/50 bg-green-50 text-green-700">FOR RENT</Badge>;
+    }
+    return null;
+  };
 
-      <div className="relative">
-        <Image
-          src={imageUrl}
-          alt={`Photo of ${property.title}`}
-          width={600}
-          height={400}
-          className="object-cover w-full h-48 transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority={priority}
-          data-ai-hint="modern house"
-        />
-        <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70" onClick={handleFavoriteClick} title="Favorite property">
-              <Heart className={cn("h-4 w-4", isFavorited && "fill-destructive text-destructive")} />
-            </Button>
-           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/50 text-white hover:bg-black/70" onClick={handleShareClick} title="Share property">
-              <Share2 className="h-4 w-4" />
-            </Button>
-        </div>
-        <div className="absolute top-2 left-2 flex flex-col items-start gap-1 z-20">
-            {property.isApproved && (
-                <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                    <BadgeCheck className="mr-1 h-3 w-3" /> Verified
-                </Badge>
-            )}
-            {property.listingStatus === 'pending' && (
-              <Badge variant="secondary">
-                <Clock className="mr-1 h-3 w-3" /> Pending
-              </Badge>
-            )}
-            {property.listingStatus === 'rejected' && (
-              <Badge variant="destructive">
-                <XCircle className="mr-1 h-3 w-3" /> Rejected
-              </Badge>
-            )}
-            {property.featured && (
-                <Badge variant="default" className="bg-accent text-accent-foreground">Featured</Badge>
-            )}
-             {isJustListed && (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                    <Sparkles className="mr-1 h-3 w-3" /> Just Listed
-                </Badge>
-            )}
-            {property.isUrgent && (
-                <Badge variant="destructive">
-                    <Flame className="mr-1 h-3 w-3" /> Urgent
-                </Badge>
-            )}
-        </div>
-         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent z-20 text-white">
-            <h3 className="font-bold font-headline text-lg truncate">{property.title}</h3>
-            <p className="flex items-center text-sm gap-1 truncate text-white/90">
-              <MapPin className="h-4 w-4 shrink-0" />
-              <span>{property.address}, {property.city}</span>
-            </p>
-          </div>
-      </div>
-      <CardContent className="p-4 space-y-4 flex-grow flex flex-col">
-        <div className="flex-grow space-y-4">
-          <div className="flex justify-between items-center">
+  const renderPrice = () => {
+    if (property.priceOnRequest || !property.price || property.price <= 0) {
+        return <p className="text-xl font-bold font-headline text-primary">Price on Request</p>;
+    }
+
+    if (property.listingFor === 'Rent') {
+        return (
             <p className="text-xl font-bold font-headline text-primary">
-              {property.price > 0 ? `₹${new Intl.NumberFormat('en-IN').format(property.price)}` : 'Price on Request'}
-              {property.listingFor === 'Rent' && property.price > 0 && (
+                ₹{new Intl.NumberFormat('en-IN').format(property.price)}
                 <span className="text-sm font-normal text-muted-foreground"> /month</span>
-              )}
             </p>
-             <Badge variant="secondary" className="capitalize">{property.propertyType}</Badge>
-          </div>
-          
-          <div className="flex justify-around items-center text-center border-y py-3">
-              <div className="flex flex-col items-center gap-0.5 w-1/3">
-                <BedDouble className="h-5 w-5 text-muted-foreground" />
-                <span className="font-semibold text-sm">{property.bhk || 'N/A'}</span>
-              </div>
-              <div className="flex flex-col items-center gap-0.5 w-1/3 border-x">
-                <Bath className="h-5 w-5 text-muted-foreground" />
-                <span className="font-semibold text-sm">{property.baths || 'N/A'} Baths</span>
-              </div>
-              <div className="flex flex-col items-center gap-0.5 w-1/3">
-                <Expand className="h-5 w-5 text-muted-foreground" />
-                <span className="font-semibold text-sm">{property.areaSqFt ? property.areaSqFt.toLocaleString('en-IN') : 'N/A'} sqft</span>
-              </div>
-          </div>
-          
-          <div className="text-sm text-muted-foreground">
-             Posted by <span className="font-semibold text-foreground">{ownerName}</span>
-          </div>
-        </div>
+        );
+    }
 
-        <div className="pt-3 mt-auto relative z-20">
-          <Button asChild className="w-full">
-            <Link href={`/properties/${property.id}`}>
-              View Details
-            </Link>
+    const formatSalePrice = (p: number) => {
+        if (p >= 10000000) return `₹${(p / 10000000).toFixed(1)} Cr`;
+        if (p >= 100000) return `₹${(p / 100000).toFixed(0)} Lakhs`;
+        return `₹${new Intl.NumberFormat('en-IN').format(p)}`;
+    };
+    
+    const price = formatSalePrice(property.price);
+    
+    return (
+        <p className="text-xl font-bold font-headline text-primary">
+            {price}
+            {property.negotiable && <span className="text-sm font-normal text-muted-foreground ml-1">negotiable</span>}
+        </p>
+    );
+  }
+
+  const specs = [];
+  if (property.bhk) {
+    specs.push({ value: property.bhk.replace('BHK', ''), label: 'Beds' });
+  } else if (property.beds) {
+    specs.push({ value: property.beds, label: 'Beds' });
+  }
+
+  if (property.baths) {
+    specs.push({ value: property.baths, label: 'Baths' });
+  }
+
+  if (property.areaSqFt) {
+    specs.push({ value: property.areaSqFt.toLocaleString('en-IN'), label: 'sqft' });
+  }
+  
+  if (property.floor) {
+    specs.push({ value: `${property.floor}${property.totalFloors ? '/' + property.totalFloors : ''}`, label: 'Floor' });
+  } else if (property.propertyType) {
+    let type = property.propertyType;
+    if (type.includes('Independent')) type = 'House';
+    if (type.includes('Flat')) type = 'Flat';
+    specs.push({ value: type, label: 'Type' });
+  }
+
+  const finalSpecs = specs.slice(0, 4);
+  while(finalSpecs.length < 4) {
+    finalSpecs.push({ value: 'N/A', label: ' ' });
+  }
+
+  return (
+    <Card className="group w-full overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col bg-card relative hover:-translate-y-1">
+      <Link href={`/properties/${property.id}`} className="flex flex-col h-full">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent z-10 group-hover:from-black/30 transition-colors"></div>
+          <Image
+            src={imageUrl}
+            alt={`Photo of ${property.title}`}
+            width={600}
+            height={400}
+            className="object-cover w-full h-48 transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority={priority}
+            data-ai-hint="modern house"
+          />
+          {renderBadge()}
+          <Button variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/30 text-white hover:bg-black/60 z-20 backdrop-blur-sm" onClick={handleFavoriteClick} title="Favorite property">
+            <Heart className={cn("h-4 w-4", isFavorited && "fill-destructive text-destructive")} />
           </Button>
         </div>
-      </CardContent>
+        
+        <CardContent className="p-4 flex flex-col flex-grow">
+          <div className="flex justify-between items-start mb-2">
+            {renderPrice()}
+            {property.isApproved && (
+                <div className="flex items-center gap-1 text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full border border-green-200/50">
+                    <BadgeCheck className="h-3 w-3" />
+                    <span>Verified</span>
+                </div>
+            )}
+          </div>
+          
+          <h3 className="font-bold font-headline text-md leading-snug truncate group-hover:text-primary transition-colors">{property.title}</h3>
+          
+          <p className="flex items-center text-sm gap-1 truncate text-muted-foreground mt-1 mb-4">
+            <MapPin className="h-4 w-4 shrink-0" />
+            <span>{property.address}, {property.city}</span>
+          </p>
+          
+          <div className="border-t mt-auto pt-4">
+              <div className="grid grid-cols-4 gap-2 text-center">
+                  {finalSpecs.map((spec, i) => (
+                      <div key={i}>
+                          <p className="font-bold text-sm text-foreground">{spec.value}</p>
+                          <p className="text-xs text-muted-foreground">{spec.label}</p>
+                      </div>
+                  ))}
+              </div>
+          </div>
+
+        </CardContent>
+      </Link>
     </Card>
   );
 }
@@ -212,14 +170,19 @@ export function PropertyCardSkeleton() {
     <Card className="w-full overflow-hidden shadow-sm flex flex-col bg-card">
       <Skeleton className="h-48 w-full" />
       <div className="p-4 space-y-3 flex-grow flex flex-col">
-        <div className="space-y-2 flex-grow">
-          <Skeleton className="h-6 w-1/3" />
-          <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-4 w-2/3" />
+        <div className="flex justify-between items-start">
+            <Skeleton className="h-6 w-2/5" />
+            <Skeleton className="h-5 w-1/4" />
         </div>
-        <div className="flex gap-2 border-t pt-3 mt-auto">
-            <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <div className="border-t mt-auto pt-4">
+            <div className="grid grid-cols-4 gap-2">
+                <div className="space-y-1"><Skeleton className="h-4 w-3/4 mx-auto" /><Skeleton className="h-3 w-1/2 mx-auto" /></div>
+                <div className="space-y-1"><Skeleton className="h-4 w-3/4 mx-auto" /><Skeleton className="h-3 w-1/2 mx-auto" /></div>
+                <div className="space-y-1"><Skeleton className="h-4 w-3/4 mx-auto" /><Skeleton className="h-3 w-1/2 mx-auto" /></div>
+                <div className="space-y-1"><Skeleton className="h-4 w-3/4 mx-auto" /><Skeleton className="h-3 w-1/2 mx-auto" /></div>
+            </div>
         </div>
       </div>
     </Card>
