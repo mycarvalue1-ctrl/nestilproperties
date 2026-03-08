@@ -50,6 +50,9 @@ service cloud.firestore {
       
       // Allow writing if the user is the owner (based on incoming data) or an admin.
       allow write: if isOwner(request.resource.data.ownerId) || isAdmin();
+
+      // DELETE: Only admins can delete the private details document.
+      allow delete: if isAdmin();
     }
 
     // Rules for user-specific data, like favorites in `/users/{userId}/favorites/{propertyId}`
