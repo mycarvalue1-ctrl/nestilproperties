@@ -62,12 +62,41 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
     toggleFavorite(property.id, isFavorited);
   };
 
-  const handleShareClick = (e: React.MouseEvent) => {
+  const handleShareClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/properties/${property.id}`;
-    navigator.clipboard.writeText(url);
-    toast({ title: "Link Copied!", description: "Property link copied to clipboard." });
+
+    // Guard against SSR: Only run on the client where window and navigator are defined.
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return;
+    }
+
+    const shareData = {
+      title: property.title,
+      text: `Check out this property on Nestil: ${property.title}`,
+      url: `${window.location.origin}/properties/${property.id}`
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        // The native share sheet was used, no need for a toast.
+      } else {
+        // Fallback for desktop browsers that have the clipboard API
+        await navigator.clipboard.writeText(shareData.url);
+        toast({ title: 'Link Copied!', description: 'Property link copied to clipboard.' });
+      }
+    } catch (err: any) {
+      // Avoid showing an error if the user cancels the share action
+      if (err.name !== 'AbortError') {
+        console.error('Failed to share: ', err);
+        toast({
+          variant: 'destructive',
+          title: 'Share Failed',
+          description: 'Could not share the property link.',
+        });
+      }
+    }
   };
   
   const validPhotos = (property.photos || []).filter(p => p && !p.includes('ik.imagekit.io'));
