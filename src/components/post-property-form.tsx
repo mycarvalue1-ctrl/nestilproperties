@@ -743,6 +743,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                           <CldUploadWidget
                               uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
                               options={{
+                                  cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
                                   sources: ['local', 'url'],
                                   multiple: true,
                                   folder: `nestil/properties/${user?.uid || 'unknown'}`
