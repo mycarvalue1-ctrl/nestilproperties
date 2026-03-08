@@ -13,7 +13,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { PropertyCardSkeleton } from '@/components/property-card';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 const HeroSection = () => (
@@ -171,12 +171,25 @@ const Ticker = () => (
 
 const FeaturedProperties = () => {
     const firestore = useFirestore();
-    const featuredQuery = useMemoFirebase(() => {
+    
+    // This query is more robust as it doesn't require a composite index.
+    // It fetches the 10 most recent approved properties.
+    const approvedPropertiesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'properties'), where('featured', '==', true), where('listingStatus', '==', 'approved'), limit(3));
+        return query(
+            collection(firestore, 'properties'), 
+            where('listingStatus', '==', 'approved'), 
+            limit(10)
+        );
     }, [firestore]);
 
-    const { data: featuredProperties, isLoading } = useCollection<Property>(featuredQuery);
+    const { data: approvedProperties, isLoading } = useCollection<Property>(approvedPropertiesQuery);
+
+    // We then filter for the 'featured' ones on the client side.
+    const featuredProperties = useMemo(() => {
+        if (!approvedProperties) return [];
+        return approvedProperties.filter(prop => prop.featured).slice(0, 3);
+    }, [approvedProperties]);
 
     return (
         <section className="py-16 md:py-24 px-4 md:px-10">
@@ -195,8 +208,13 @@ const FeaturedProperties = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {isLoading ? (
                         [...Array(3)].map((_, i) => <PropertyCardSkeleton key={i} />)
+                    ) : featuredProperties.length > 0 ? (
+                        featuredProperties.map((prop, index) => <PropertyCard key={prop.id} property={prop} priority={index < 3} />)
                     ) : (
-                        featuredProperties?.map((prop, index) => <PropertyCard key={prop.id} property={prop} priority={index < 3} />)
+                        <div className="col-span-3 text-center py-10 border-dashed border-2 rounded-lg bg-background">
+                            <h3 className="text-xl font-semibold">No Featured Properties</h3>
+                            <p className="text-muted-foreground mt-2">Check back later to see our hand-picked listings.</p>
+                        </div>
                     )}
                 </div>
             </div>
@@ -234,3 +252,5 @@ export default function Home() {
     </>
   );
 }
+
+    
