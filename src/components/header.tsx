@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -11,15 +10,10 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { LocationSelector } from './location-selector';
 import { UserNav } from './user-nav';
 
 export function Header() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const navLinks = [
     { href: '/properties?transaction=Rent', label: 'Rent' },
     { href: '/properties?transaction=Sale', label: 'Buy' },
@@ -41,10 +35,7 @@ export function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={cn(
-                "transition-colors hover:text-foreground/80",
-                pathname === '/properties' && searchParams.get('transaction') === link.label ? "text-foreground font-semibold" : "text-foreground/60"
-              )}
+              className="text-foreground/60 transition-colors hover:text-foreground/80"
             >
               {link.label}
             </Link>
