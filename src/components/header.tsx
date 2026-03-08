@@ -1,85 +1,69 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Logo } from '@/components/logo';
-import { LocationSelector } from './location-selector';
-import { UserNav } from './user-nav';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
+import { Menu } from 'lucide-react';
+
+const NavLogo = () => (
+    <Link href="/" className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-primary to-[#6366F1] flex items-center justify-center text-base font-black text-white">N</div>
+        Nest<span className="text-primary">il</span>
+    </Link>
+)
 
 export function Header() {
+  const pathname = usePathname();
+
   const navLinks = [
-    { href: '/properties?transaction=Rent', label: 'Rent' },
-    { href: '/properties?transaction=Sale', label: 'Buy' },
+    { href: '/', label: 'Home' },
+    { href: '/properties', label: 'Properties' },
+    { href: '/agents', label: 'Agents' },
+    { href: '/about', label: 'About' },
   ];
-  
-  const mobileNavLinks = [...navLinks, { href: '/post-property', label: 'Post Property Free' }];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
-        <Logo />
-        
-        <div className="ml-4 hidden md:flex">
-          <LocationSelector />
-        </div>
-
-        <nav className="ml-6 hidden md:flex items-center space-x-6 text-sm font-medium">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-foreground/60 transition-colors hover:text-foreground/80"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex flex-1 items-center justify-end gap-2">
-          <Button variant="accent" asChild className="hidden sm:inline-flex">
-            <Link href="/post-property">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Post Property Free
-            </Link>
-          </Button>
-          
-          <UserNav />
-
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-              <Logo />
-               <div className="mt-8">
-                <LocationSelector className="w-full justify-between p-2 hover:bg-accent rounded-md" />
-              </div>
-              <div className="flex flex-col space-y-4 mt-4">
-                {mobileNavLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="text-lg font-medium text-foreground/80 hover:text-foreground p-2"
-                  >
+    <header className="sticky top-0 z-50 flex items-center justify-between h-[68px] px-4 md:px-10 bg-white/90 backdrop-blur-2xl border-b">
+        <NavLogo />
+        <nav className="hidden md:flex items-center gap-1.5">
+            {navLinks.map(link => (
+                <Link key={link.href} href={link.href} className={cn(
+                    "px-3.5 py-[7px] rounded-lg text-sm font-medium text-slate-600 transition-colors",
+                    pathname === link.href ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100 hover:text-slate-900"
+                )}>
                     {link.label}
-                  </Link>
-                ))}
-              </div>
-            </SheetContent>
-          </Sheet>
+                </Link>
+            ))}
+        </nav>
+        <div className="flex items-center gap-2.5">
+            <Button variant="ghost" asChild className="hidden md:inline-flex border border-slate-700/20 text-slate-600 !font-semibold text-[13px] hover:border-primary hover:text-primary hover:bg-primary/5">
+                <Link href="/contact">Contact</Link>
+            </Button>
+             <Button asChild className="hidden md:inline-flex !font-bold text-[13px] bg-primary hover:bg-blue-700 hover:-translate-y-px shadow-lg shadow-blue-500/10">
+                <Link href="/post-property">+ List Property</Link>
+            </Button>
+            <Sheet>
+                <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="md:hidden">
+                        <Menu className="h-6 w-6" />
+                    </Button>
+                </SheetTrigger>
+                <SheetContent>
+                    <nav className="flex flex-col gap-4 mt-8">
+                        {navLinks.map(link => (
+                             <Link key={link.href} href={link.href} className={cn(
+                                "px-4 py-2 rounded-lg text-lg font-medium text-slate-600 transition-colors",
+                                pathname === link.href ? "bg-slate-100 text-slate-900" : "hover:bg-slate-100 hover:text-slate-900"
+                            )}>
+                                {link.label}
+                            </Link>
+                        ))}
+                    </nav>
+                </SheetContent>
+            </Sheet>
         </div>
-      </div>
     </header>
   );
 }

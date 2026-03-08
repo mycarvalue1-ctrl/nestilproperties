@@ -3,21 +3,14 @@ import './globals.css';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { Toaster } from '@/components/ui/toaster';
-import { Open_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
-const openSansHeadline = Open_Sans({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
   display: 'swap',
-  weight: ['500', '600', '700'],
-  variable: '--font-headline',
-});
-
-const openSansBody = Open_Sans({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '600'],
+  weight: ['300', '400', '500', '600', '700', '800'],
   variable: '--font-body',
 });
 
@@ -36,9 +29,8 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth">
       <body
         className={cn(
-          'font-body antialiased',
-          openSansHeadline.variable,
-          openSansBody.variable
+          'relative z-10',
+          plusJakartaSans.variable
         )}
       >
         <FirebaseClientProvider>
