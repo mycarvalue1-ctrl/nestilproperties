@@ -31,12 +31,18 @@ export function useFavorites() {
       toast({
         title: 'Please log in',
         description: 'You need to be logged in to save favorites.',
-        action: (
-          <ToastAction asChild altText="Login">
-            <Button variant="outline" size="sm" onClick={() => router.push(`/login?redirect=/properties/${propertyId}`)}>
-              Login
-            </Button>
-          </ToastAction>
+        action: React.createElement(
+          ToastAction,
+          { asChild: true, altText: 'Login' },
+          React.createElement(
+            Button,
+            {
+              variant: 'outline',
+              size: 'sm',
+              onClick: () => router.push(`/login?redirect=/properties/${propertyId}`),
+            },
+            'Login'
+          )
         ),
       });
       return;

@@ -1,4 +1,14 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
 export default function PrivacyPolicyPage() {
+    const [lastUpdated, setLastUpdated] = useState('');
+
+    useEffect(() => {
+        setLastUpdated(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+    }, []);
+
     return (
       <div className="bg-background">
         <div className="container py-16 md:py-24">
@@ -7,7 +17,7 @@ export default function PrivacyPolicyPage() {
               <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary">
                 Privacy Policy
               </h1>
-              <p className="mt-2 text-muted-foreground">Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="mt-2 text-muted-foreground">Last updated: {lastUpdated}</p>
             </div>
   
             <p>
