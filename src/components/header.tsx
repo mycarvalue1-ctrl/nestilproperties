@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -67,7 +66,7 @@ export function Header() {
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left">
+            <SheetContent side="right">
               <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
               <Logo />
                <div className="mt-8">
