@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 
 
@@ -26,17 +26,29 @@ function RecentListings() {
 
   const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // This query fetches the 6 latest approved properties directly from Firestore.
-    // This is more efficient and aligns with security rules.
+    // This query fetches approved properties. Sorting and limiting is handled
+    // on the client to avoid needing a composite index.
     return query(
       collection(firestore, 'properties'),
-      where('listingStatus', '==', 'approved'),
-      orderBy('dateAdded', 'desc'),
-      limit(6)
+      where('listingStatus', '==', 'approved')
     );
   }, [firestore]);
 
-  const { data: recentProperties, isLoading } = useCollection<Property>(recentPropertiesQuery);
+  const { data: approvedProperties, isLoading } = useCollection<Property>(recentPropertiesQuery);
+  
+  const recentProperties = useMemo(() => {
+    if (!approvedProperties) return [];
+    
+    return [...approvedProperties]
+      .sort((a, b) => {
+          try {
+              return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
+          } catch (e) {
+              return 0; // if date is invalid, don't sort
+          }
+      })
+      .slice(0, 6);
+  }, [approvedProperties]);
 
   return (
       <section className="py-16 md:py-24 bg-background">
