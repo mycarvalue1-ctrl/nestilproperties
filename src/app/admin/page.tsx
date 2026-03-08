@@ -25,19 +25,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CheckCircle, XCircle, Clock, Download, Users, Eye, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Download, Users, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive } from "lucide-react";
 import type { Property, PropertyOwner } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { collection, doc, updateDoc, deleteDoc, query, where, getDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, query, where, getDoc, getCountFromServer } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+
 
 function AdminSkeleton() {
   return (
@@ -46,8 +45,8 @@ function AdminSkeleton() {
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-4 w-80" />
       </div>
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
       </div>
       <Skeleton className="h-96" />
       <Skeleton className="h-96" />
@@ -157,11 +156,47 @@ export default function AdminPage() {
   const [propertyStatusFilter, setPropertyStatusFilter] = useState('all');
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all');
 
+  const [summaryCounts, setSummaryCounts] = useState({ total: 0, active: 0, soldRented: 0 });
+  const [countsLoading, setCountsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCounts() {
+        if (!firestore) return;
+        setCountsLoading(true);
+        try {
+            const allPropsCol = collection(firestore, 'properties');
+            const totalPromise = getCountFromServer(allPropsCol);
+            const activePromise = getCountFromServer(query(allPropsCol, where('listingStatus', '==', 'approved')));
+            const soldPromise = getCountFromServer(query(allPropsCol, where('listingStatus', '==', 'sold')));
+            const rentedPromise = getCountFromServer(query(allPropsCol, where('listingStatus', '==', 'rented')));
+
+            const [totalSnap, activeSnap, soldSnap, rentedSnap] = await Promise.all([totalPromise, activePromise, soldPromise, rentedPromise]);
+            
+            setSummaryCounts({
+                total: totalSnap.data().count,
+                active: activeSnap.data().count,
+                soldRented: soldSnap.data().count + rentedSnap.data().count,
+            });
+
+        } catch (e) {
+            console.error("Error fetching summary counts", e);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load summary statistics.'});
+        } finally {
+            setCountsLoading(false);
+        }
+    }
+    fetchCounts();
+  }, [firestore, toast]);
+
+
   useEffect(() => {
     const generatePdf = async () => {
         if (pdfProperty && pdfRef.current) {
             setIsGeneratingPdf(true);
             try {
+                const { default: jsPDF } = await import('jspdf');
+                const { default: html2canvas } = await import('html2canvas');
+
                 const canvas = await html2canvas(pdfRef.current, {
                     useCORS: true,
                     scale: 2, // Higher scale for better quality
@@ -212,41 +247,59 @@ export default function AdminPage() {
     }
   }
 
-  const allPropertiesQuery = useMemoFirebase(() => {
+  // Separate query for pending properties
+  const pendingPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'properties');
+    return query(collection(firestore, 'properties'), where('listingStatus', '==', 'pending'));
   }, [firestore]);
 
-  const { data: allProperties, isLoading: propertiesLoading } = useCollection<Property>(allPropertiesQuery);
+  const { data: pendingProperties, isLoading: pendingLoading } = useCollection<Property>(pendingPropertiesQuery);
     
-  const pendingProperties = useMemo(() => {
-    return allProperties?.filter(p => p.listingStatus === 'pending') || [];
-  }, [allProperties]);
+  // Dynamic query for the main table
+  const tableQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
 
+      let q = query(collection(firestore, 'properties'));
+      
+      if (propertyStatusFilter === 'all') {
+          // A query with a `!=` clause is not supported on its own. 
+          // We fetch all and filter client-side for this specific case.
+          // For other statuses, we filter directly in the query.
+      } else {
+          q = query(q, where('listingStatus', '==', propertyStatusFilter));
+      }
+
+      if (propertyTypeFilter !== 'all') {
+          q = query(q, where('listingFor', '==', propertyTypeFilter.toLowerCase()));
+      }
+      
+      return q;
+  }, [firestore, propertyStatusFilter, propertyTypeFilter]);
+
+  const { data: tableProperties, isLoading: tableLoading } = useCollection<Property>(tableQuery);
 
   const filteredProperties = useMemo(() => {
-    if (!allProperties) return [];
-    return allProperties.filter(prop => {
-      const statusMatch = propertyStatusFilter === 'all'
-        ? prop.listingStatus !== 'archived'
-        : prop.listingStatus === propertyStatusFilter;
+    if (!tableProperties) return [];
+    
+    let props = tableProperties;
 
-      const typeMatch = propertyTypeFilter === 'all' || prop.listingFor.toLowerCase() === propertyTypeFilter.toLowerCase();
+    if (propertyStatusFilter === 'all') {
+        props = props.filter(p => p.listingStatus !== 'archived');
+    }
 
-      const searchMatch = prop.title.toLowerCase().includes(propertySearch.toLowerCase()) ||
-                          prop.address.toLowerCase().includes(propertySearch.toLowerCase());
+    if (propertySearch) {
+        props = props.filter(prop => 
+            prop.title.toLowerCase().includes(propertySearch.toLowerCase()) ||
+            prop.address.toLowerCase().includes(propertySearch.toLowerCase())
+        );
+    }
 
-      return statusMatch && typeMatch && searchMatch;
-    });
-  }, [allProperties, propertySearch, propertyStatusFilter, propertyTypeFilter]);
+    return props;
+  }, [tableProperties, propertySearch, propertyStatusFilter]);
   
-  if (propertiesLoading) {
+  if (pendingLoading || tableLoading || countsLoading) {
       return <AdminSkeleton />;
   }
-
-  const activeListings = allProperties?.filter(p => p.listingStatus === 'approved').length || 0;
-  const soldRentedCount = allProperties?.filter(p => p.listingStatus === 'sold' || p.listingStatus === 'rented').length || 0;
-  const propertiesCount = allProperties?.length || 0;
 
   const handleApprove = async (id: string) => {
     if (!firestore) return;
@@ -294,14 +347,12 @@ export default function AdminPage() {
     }
   };
   
-  const handleMarkAsSoldRented = async (propertyId: string) => {
+  const handleMarkAsSoldRented = async (property: Property) => {
       if (!firestore) return;
-      const property = allProperties?.find(p => p.id === propertyId);
-      if (!property) return;
-
+      
       const newStatus = property.listingStatus === 'sold' || property.listingStatus === 'rented' ? 'approved' : (property.listingFor === 'Rent' ? 'rented' : 'sold');
-      setProcessingPropertyId(propertyId);
-      const propRef = doc(firestore, 'properties', propertyId);
+      setProcessingPropertyId(property.id);
+      const propRef = doc(firestore, 'properties', property.id);
       try {
         await updateDoc(propRef, { listingStatus: newStatus });
         toast({ title: "Status Updated", description: `Property marked as ${newStatus}.` });
@@ -315,10 +366,10 @@ export default function AdminPage() {
 
   
   const handlePropertyCsvDownload = () => {
-    if (!allProperties) return;
+    if (!tableProperties) return;
 
     // Sort properties by date added, newest first
-    const sortedProperties = [...allProperties].sort((a, b) => {
+    const sortedProperties = [...tableProperties].sort((a, b) => {
         try {
             return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
         } catch (e) {
@@ -396,7 +447,7 @@ export default function AdminPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{propertiesCount}</div>
+                <div className="text-2xl font-bold">{summaryCounts.total}</div>
             </CardContent>
         </Card>
         <Card>
@@ -405,7 +456,7 @@ export default function AdminPage() {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{activeListings}</div>
+                <div className="text-2xl font-bold">{summaryCounts.active}</div>
             </CardContent>
         </Card>
         <Card>
@@ -414,7 +465,7 @@ export default function AdminPage() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{pendingProperties.length}</div>
+                <div className="text-2xl font-bold">{pendingProperties?.length || 0}</div>
             </CardContent>
         </Card>
         <Card>
@@ -423,7 +474,7 @@ export default function AdminPage() {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{soldRentedCount}</div>
+                <div className="text-2xl font-bold">{summaryCounts.soldRented}</div>
             </CardContent>
         </Card>
        </div>
@@ -571,7 +622,7 @@ export default function AdminPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="cursor-pointer"
-                                onClick={() => handleMarkAsSoldRented(prop.id)}
+                                onClick={() => handleMarkAsSoldRented(prop)}
                                 disabled={processingPropertyId === prop.id}
                             >
                                 {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}

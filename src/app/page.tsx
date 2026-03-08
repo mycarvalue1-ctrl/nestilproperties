@@ -17,39 +17,24 @@ import {
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 
 
 function RecentListings() {
   const firestore = useFirestore();
 
-  const approvedPropertiesQuery = useMemoFirebase(() => {
+  const recentPropertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
       collection(firestore, 'properties'),
-      where('listingStatus', '==', 'approved')
+      where('listingStatus', '==', 'approved'),
+      orderBy('dateAdded', 'desc'),
+      limit(6)
     );
   }, [firestore]);
 
-  const { data: allApprovedProperties, isLoading: isLoadingProperties } = useCollection<Property>(approvedPropertiesQuery);
-
-  // Sorting and limiting is done here, on the client, after data is fetched.
-  const recentProperties = useMemo(() => {
-    if (!allApprovedProperties) return [];
-    
-    return [...allApprovedProperties]
-      .sort((a, b) => {
-        try {
-          // Sort by dateAdded, newest first.
-          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
-        } catch (e) {
-          // Fallback if date is invalid
-          return 0;
-        }
-      })
-      .slice(0, 6); // Take only the first 6.
-  }, [allApprovedProperties]);
+  const { data: recentProperties, isLoading: isLoadingProperties } = useCollection<Property>(recentPropertiesQuery);
   
   const isLoading = isLoadingProperties;
 
@@ -74,7 +59,7 @@ function RecentListings() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {recentProperties.length > 0 ? (
+                {recentProperties && recentProperties.length > 0 ? (
                   recentProperties.map((prop, index) => (
                     <PropertyCard
                       key={prop.id}
@@ -88,7 +73,7 @@ function RecentListings() {
                   </div>
                 )}
               </div>
-              {recentProperties.length > 0 && (
+              {recentProperties && recentProperties.length > 0 && (
                 <div className="text-center mt-12">
                     <Button size="lg" asChild>
                     <Link href="/properties">View All Properties</Link>
