@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -17,7 +16,7 @@ import {
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, limit, orderBy } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -159,11 +158,16 @@ export default function Home() {
     <>
       <section className="py-20 md:py-24 bg-secondary/50 text-center">
         <div className="container">
-          <h1 className="text-4xl md:text-6xl font-bold font-headline text-primary">
-            Find Your Perfect Place
+          <h1 className="text-4xl md:text-6xl font-bold font-headline leading-tight text-foreground">
+            Find Your
+            <br />
+            <span className="text-accent">Dream Home</span>
+            <br />
+            Across AP
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-foreground/80">
-            Discover homes, plots, and commercial properties tailored for you.
+            From Visakhapatnam to Tirupati — browse thousands of verified
+            properties across every district of Andhra Pradesh.
           </p>
 
           <div className="max-w-4xl mx-auto mt-8">
