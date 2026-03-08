@@ -29,7 +29,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import Image from 'next/image';
-import { CheckCircle, XCircle, Clock, Download, Users, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Download, Users, Ban, Trash2, MoreVertical, Filter, Search, Edit, Building2, LoaderCircle, BedDouble, Bath, Expand, MapPin, Archive, Eye, DollarSign } from "lucide-react";
 import type { Property, PropertyOwner } from "@/lib/types";
 import Link from "next/link";
 import { format, fromUnixTime } from "date-fns";
@@ -389,6 +389,22 @@ export default function AdminPage() {
       }
   };
 
+  const handleTogglePaidStatus = async (property: Property) => {
+    if (!firestore) return;
+    const newPaidStatus = !property.isPaid;
+    setProcessingPropertyId(property.id);
+    const propRef = doc(firestore, 'properties', property.id);
+    try {
+      await updateDoc(propRef, { isPaid: newPaidStatus });
+      toast({ title: "Status Updated", description: `Property marked as ${newPaidStatus ? 'Paid' : 'Unpaid'}.` });
+    } catch (error) {
+      console.error("Error updating paid status:", error);
+      toast({ variant: "destructive", title: "Update Failed", description: "Could not update paid status." });
+    } finally {
+      setProcessingPropertyId(null);
+    }
+  };
+
   
   const handlePropertyCsvDownload = () => {
     if (!tableProperties) return;
@@ -722,19 +738,22 @@ export default function AdminPage() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">₹{prop.price.toLocaleString('en-IN')}</TableCell>
                     <TableCell>
-                       <Badge variant={
-                           prop.listingStatus === 'approved' ? 'default' : 
-                           prop.listingStatus === 'pending' ? 'secondary' :
-                           prop.listingStatus === 'sold' || prop.listingStatus === 'rented' ? 'outline' : 
-                           prop.listingStatus === 'archived' ? 'secondary' :
-                           'destructive'
-                        } className="capitalize flex items-center gap-1 w-fit">
-                           {prop.listingStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
-                           {prop.listingStatus === 'pending' && <Clock className="h-3 w-3" />}
-                           {prop.listingStatus === 'rejected' && <XCircle className="h-3 w-3" />}
-                           {prop.listingStatus === 'archived' && <Archive className="h-3 w-3" />}
-                           {prop.listingStatus}
-                       </Badge>
+                        <div className="flex flex-col gap-1">
+                           <Badge variant={
+                               prop.listingStatus === 'approved' ? 'default' : 
+                               prop.listingStatus === 'pending' ? 'secondary' :
+                               prop.listingStatus === 'sold' || prop.listingStatus === 'rented' ? 'outline' : 
+                               prop.listingStatus === 'archived' ? 'secondary' :
+                               'destructive'
+                            } className="capitalize flex items-center gap-1 w-fit">
+                               {prop.listingStatus === 'approved' && <CheckCircle className="h-3 w-3" />}
+                               {prop.listingStatus === 'pending' && <Clock className="h-3 w-3" />}
+                               {prop.listingStatus === 'rejected' && <XCircle className="h-3 w-3" />}
+                               {prop.listingStatus === 'archived' && <Archive className="h-3 w-3" />}
+                               {prop.listingStatus}
+                           </Badge>
+                           {prop.isPaid && <Badge variant='accent' className="capitalize flex items-center gap-1 w-fit"><DollarSign className="h-3 w-3" />Paid</Badge>}
+                        </div>
                     </TableCell>
                     <TableCell className="text-right">
                        <DropdownMenu>
@@ -756,6 +775,14 @@ export default function AdminPage() {
                             >
                                 {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                                 {prop.listingStatus === 'sold' || prop.listingStatus === 'rented' ? 'Mark as Available' : 'Mark as Sold/Rented'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                                className="cursor-pointer"
+                                onClick={() => handleTogglePaidStatus(prop)}
+                                disabled={processingPropertyId === prop.id}
+                            >
+                                {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <DollarSign className="mr-2 h-4 w-4" />}
+                                {prop.isPaid ? 'Mark as Unpaid' : 'Mark as Paid'}
                             </DropdownMenuItem>
                              <DropdownMenuItem 
                                 className="cursor-pointer"

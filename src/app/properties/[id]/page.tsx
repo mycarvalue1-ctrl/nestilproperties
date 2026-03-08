@@ -70,7 +70,14 @@ export default function PropertyDetailPage() {
   
   useEffect(() => {
     async function fetchPrivateDetails() {
-      if (!firestore || !params.id || isAuthLoading) return;
+      if (!firestore || !params.id || isAuthLoading || !property) return;
+
+      // Only show contact info/login prompt for PAID properties
+      if (!property.isPaid) {
+        setShowLoginPrompt(false);
+        setPrivateDetails(null);
+        return;
+      }
 
       if (!user) {
         setShowLoginPrompt(true);

@@ -377,6 +377,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
           isNew: true, 
           isFeatured: false, 
           isUrgent: false, 
+          isPaid: false,
       }),
       isApproved: false,
       listingStatus: 'pending',
