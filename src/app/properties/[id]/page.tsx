@@ -70,23 +70,25 @@ export default function PropertyDetailPage() {
     async function fetchPrivateDetails() {
       if (!firestore || !params.id) return;
       const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
-      const docSnap = await getDoc(privateDocRef);
-      if (docSnap.exists()) {
-        setPrivateDetails(docSnap.data() as PropertyOwner);
-      } else {
-        setPrivateDetails(null);
-      }
-    }
-
-    if (property) {
-      fetchPrivateDetails().catch(error => {
-        if (error.code === 'permission-denied') {
+      try {
+        const docSnap = await getDoc(privateDocRef);
+        if (docSnap.exists()) {
+          setPrivateDetails(docSnap.data() as PropertyOwner);
+        } else {
+          setPrivateDetails(null);
+        }
+      } catch (error: any) {
+         if (error.code === 'permission-denied') {
           console.log("Permission denied when fetching private details (expected for public users).");
           setPrivateDetails(null);
         } else {
           console.error("Error fetching private details:", error);
         }
-      });
+      }
+    }
+
+    if (property) {
+      fetchPrivateDetails();
     }
   }, [property, firestore, params.id]);
 
@@ -118,7 +120,7 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const validPhotos = (property.photos || []).filter(p => !p.includes('ik.imagekit.io'));
+  const validPhotos = (property.photos || []).filter(p => p && !p.includes('ik.imagekit.io'));
   const propertyPhotos = validPhotos.length > 0 ? validPhotos : ['https://picsum.photos/seed/property/800/600'];
 
   return (

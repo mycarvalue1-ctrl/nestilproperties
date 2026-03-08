@@ -62,7 +62,8 @@ function AdminSkeleton() {
 const PropertyPdfCard = ({ property, owner, innerRef }: { property: Property | null, owner: PropertyOwner | null, innerRef: React.Ref<HTMLDivElement> }) => {
     if (!property || !owner) return null;
 
-    const photoUrl = (property.photos && property.photos.length > 0) ? property.photos[0] : 'https://placehold.co/800x600/e2e8f0/e2e8f0?text=No+Image';
+    const validPhotos = (property.photos || []).filter(p => p && !p.includes('ik.imagekit.io'));
+    const photoUrl = validPhotos.length > 0 ? validPhotos[0] : 'https://placehold.co/800x600/e2e8f0/e2e8f0?text=No+Image';
     const maskedPhone = owner.phone ? `******${owner.phone.slice(-4)}` : 'N/A';
 
     return (
@@ -442,7 +443,9 @@ export default function AdminPage() {
       
       <Dialog open={!!previewProperty} onOpenChange={(isOpen) => !isOpen && setPreviewProperty(null)}>
         <DialogContent className="max-w-4xl w-full">
-            {previewProperty && (
+            {previewProperty && (() => {
+              const validPhotos = (previewProperty.photos || []).filter(p => p && !p.includes('ik.imagekit.io'));
+              return (
                 <>
                     <DialogHeader>
                         <DialogTitle>{previewProperty.title}</DialogTitle>
@@ -453,10 +456,10 @@ export default function AdminPage() {
                     </DialogHeader>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-4">
                         <div className="space-y-4">
-                            {previewProperty.photos && previewProperty.photos.length > 0 ? (
+                            {validPhotos.length > 0 ? (
                                 <Carousel className="w-full">
                                     <CarouselContent>
-                                        {previewProperty.photos.map((photo, index) => (
+                                        {validPhotos.map((photo, index) => (
                                         <CarouselItem key={index}>
                                             <div className="aspect-video relative">
                                                 <Image src={photo} alt={`Property image ${index + 1}`} fill className="object-cover rounded-md"/>
@@ -529,7 +532,8 @@ export default function AdminPage() {
                         </div>
                     </DialogFooter>
                 </>
-            )}
+              )
+            })()}
         </DialogContent>
     </Dialog>
       
