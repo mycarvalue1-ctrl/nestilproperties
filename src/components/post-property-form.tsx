@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,10 @@ const formSchema = z.object({
   visitAvailability: z.string().optional(),
 
   amenities: z.array(z.string()).optional(),
+  nearbyPlaces: z.array(z.object({
+    name: z.string().min(1, "Place name cannot be empty."),
+    distance: z.string().min(1, "Distance cannot be empty.")
+  })).optional(),
   nonVegAllowed: z.boolean().default(true),
   vehicleParking: z.string().optional(),
   photos: z.array(z.string()).min(1, "Please upload at least one image.").max(5, "You can upload a maximum of 5 images."),
@@ -182,6 +186,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       preferredTenants: 'Anyone',
       visitAvailability: '',
       amenities: [],
+      nearbyPlaces: [],
       nonVegAllowed: true,
       vehicleParking: 'None',
       photos: [],
@@ -203,6 +208,11 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
         approved: 'No',
       },
     },
+  });
+  
+  const { fields: nearbyFields, append: appendNearby, remove: removeNearby } = useFieldArray({
+    control: form.control,
+    name: "nearbyPlaces"
   });
 
   const propertyType = useWatch({ control: form.control, name: 'propertyType' });
@@ -290,6 +300,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                             preferredTenants: data.preferredTenants,
                             visitAvailability: data.visitAvailability,
                             amenities: data.amenities,
+                            nearbyPlaces: data.nearbyPlaces || [],
                             nonVegAllowed: data.nonVegAllowed,
                             vehicleParking: data.vehicleParking,
                             photos: existingPhotos,
@@ -354,7 +365,9 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       baths: Number(values.details.bathrooms?.charAt(0) || '0'), furnishing: values.details.furnishing,
       floor: values.details.floor, totalFloors: values.details.totalFloors, facing: values.details.facing, age: values.details.age,
       plotArea: values.details.plotArea, roadWidth: values.details.roadWidth, dtcpApproved: values.details.approved === 'Yes',
-      amenities: values.amenities || [], nonVegAllowed: values.nonVegAllowed, vehicleParking: values.vehicleParking,
+      amenities: values.amenities || [], 
+      nearbyPlaces: values.nearbyPlaces || [],
+      nonVegAllowed: values.nonVegAllowed, vehicleParking: values.vehicleParking,
       photos: values.photos,
       postedByType: values.postedBy,
       updatedAt: serverTimestamp(),
@@ -364,7 +377,6 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
           isNew: true, 
           isFeatured: false, 
           isUrgent: false, 
-          nearbyPlaces: [] 
       }),
       isApproved: false,
       listingStatus: 'pending',
@@ -730,6 +742,49 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                     )}
                 />
             </div>
+          </FormSection>
+          
+          <FormSection title="Nearby Places (Optional)" description="List important places like schools, hospitals, or parks near the property.">
+            <div className="space-y-4">
+                {nearbyFields.map((field, index) => (
+                    <div key={field.id} className="flex items-end gap-2 p-4 border rounded-md bg-muted/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-grow">
+                             <FormField
+                                control={form.control}
+                                name={`nearbyPlaces.${index}.name`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-sm">Place Name</FormLabel>
+                                        <FormControl><Input placeholder="e.g., City Hospital" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name={`nearbyPlaces.${index}.distance`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-sm">Distance</FormLabel>
+                                        <FormControl><Input placeholder="e.g., 2 km" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <Button type="button" variant="destructive" size="icon" onClick={() => removeNearby(index)}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
+            </div>
+            <Button
+                type="button"
+                variant="outline"
+                onClick={() => appendNearby({ name: '', distance: '' })}
+            >
+                Add Nearby Place
+            </Button>
           </FormSection>
 
           <FormSection title="Property Photos" description="Upload high-quality images of your property. Drag and drop files or click to upload. The first image will be the main one.">
