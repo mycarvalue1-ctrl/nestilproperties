@@ -37,7 +37,7 @@ const HeroSection = () => (
                 <span className="text-slate-400">Instantly.</span>
             </h1>
             <p className="text-lg text-slate-600 max-w-xl leading-relaxed mt-6 mb-11">
-                12,400+ verified properties across all 26 districts of Andhra Pradesh. From Visakhapatnam to Tirupati — we've got you covered.
+                12,400+ Verified Properties. 26 Districts. One Trusted Platform for Andhra Pradesh.
             </p>
 
             <SearchWidget />
@@ -200,7 +200,7 @@ const FeaturedProperties = () => {
 
     return (
         <section className="py-16 md:py-24">
-            <div className="container mx-auto">
+            <div className="container">
                 <div className="flex flex-col text-center md:flex-row md:text-left items-center md:items-end justify-between mb-12 gap-y-4">
                     <div>
                         <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-bold tracking-widest uppercase text-primary mb-4">
@@ -232,7 +232,7 @@ const FeaturedProperties = () => {
 
 const CtaBand = () => (
     <div className="py-20">
-        <div className="container mx-auto rounded-2xl p-10 md:p-16 bg-gradient-to-r from-blue-50 to-emerald-50 border border-primary/10 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-10">
+        <div className="container rounded-2xl p-10 md:p-16 bg-gradient-to-r from-blue-50 to-emerald-50 border border-primary/10 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-10">
             <div className="absolute top-[-80px] right-[-80px] w-96 h-96 rounded-full bg-primary/5 pointer-events-none"></div>
             <div className="absolute bottom-[-60px] left-[20%] w-72 h-72 rounded-full bg-emerald-500/5 pointer-events-none"></div>
             <h2 className="font-extrabold text-3xl md:text-5xl leading-tight text-slate-800 max-w-lg text-center lg:text-left relative z-10">Ready to List Your <span className="glow-text">Property</span> on Nestil?</h2>
