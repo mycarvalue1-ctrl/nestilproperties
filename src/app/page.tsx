@@ -185,11 +185,13 @@ const FeaturedProperties = () => {
     const propertiesToShow = useMemo(() => {
         if (!approvedProperties) return [];
         
+        // Prioritize properties marked as 'featured'
         const featured = approvedProperties.filter(prop => prop.featured);
         if (featured.length > 0) {
             return featured.slice(0, 3);
         }
         
+        // Fallback to the 3 most recently added approved properties
         return approvedProperties.slice(0, 3);
 
     }, [approvedProperties]);
@@ -197,18 +199,18 @@ const FeaturedProperties = () => {
     return (
         <section className="py-16 md:py-24 px-4 md:px-10">
             <div className="container mx-auto">
-                <div className="flex items-end justify-between mb-12">
+                <div className="flex flex-col text-center md:flex-row md:text-left items-center md:items-end justify-between mb-12 gap-y-4">
                     <div>
-                        <div className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-primary mb-4">
+                        <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-bold tracking-widest uppercase text-primary mb-4">
                             <span className="w-5 h-0.5 bg-primary rounded-full"></span>Featured Listings
                         </div>
                         <h2 className="font-extrabold text-3xl md:text-5xl leading-none tracking-tight text-slate-800">Verified Properties<br/>Hand-Picked for <span className="text-primary">You</span></h2>
                     </div>
-                    <Button variant="outline" asChild className="hidden sm:flex border-primary/20 text-primary hover:bg-primary/5 hover:text-primary gap-1.5 hover:gap-2.5 transition-all">
+                    <Button variant="outline" asChild className="border-primary/20 text-primary hover:bg-primary/5 hover:text-primary gap-1.5 hover:gap-2.5 transition-all md:shrink-0">
                         <Link href="/properties">Browse All →</Link>
                     </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {isLoading ? (
                         [...Array(3)].map((_, i) => <PropertyCardSkeleton key={i} />)
                     ) : propertiesToShow.length > 0 ? (
