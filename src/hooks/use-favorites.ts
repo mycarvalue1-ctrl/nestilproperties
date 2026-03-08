@@ -30,7 +30,7 @@ export function useFavorites() {
       toast({
         title: 'Please log in',
         description: 'You need to be logged in to save favorites.',
-        action: React.createElement(ToastAction, { altText: 'Login', onClick: () => router.push(`/login?redirect=/properties/${propertyId}`) }, 'Login'),
+        action: <ToastAction altText="Login" onClick={() => router.push(`/login?redirect=/properties/${propertyId}`)}>Login</ToastAction>,
       });
       return;
     }

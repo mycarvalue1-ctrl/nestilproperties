@@ -13,6 +13,7 @@ import { differenceInDays, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useFavorites } from '@/hooks/use-favorites';
+import { useState, useEffect } from 'react';
 
 const WhatsappIcon = () => (
   <svg
@@ -36,25 +37,28 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
   const ownerName = property.ownerName || property.postedByType;
 
   const isFavorited = favoriteIds.has(property.id);
+  const [isJustListed, setIsJustListed] = useState(false);
+
+  useEffect(() => {
+    const calculateJustListed = () => {
+      if (!property.dateAdded) return false;
+      try {
+        if (typeof property.dateAdded !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(property.dateAdded)) {
+          return false;
+        }
+        const date = parseISO(property.dateAdded);
+        if (isNaN(date.getTime())) {
+          return false;
+        }
+        return differenceInDays(new Date(), date) <= 3;
+      } catch (error) {
+        console.warn(`Invalid date format for property ${property.id}:`, property.dateAdded);
+        return false;
+      }
+    };
+    setIsJustListed(calculateJustListed());
+  }, [property.dateAdded, property.id]);
   
-  const isJustListed = (() => {
-    if (!property.dateAdded) return false;
-    try {
-      if (typeof property.dateAdded !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(property.dateAdded)) {
-        return false;
-      }
-      const date = parseISO(property.dateAdded);
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return false;
-      }
-      return differenceInDays(new Date(), date) <= 3;
-    } catch (error) {
-      // Catch errors from parseISO if the format is fundamentally wrong
-      console.warn(`Invalid date format for property ${property.id}:`, property.dateAdded);
-      return false;
-    }
-  })();
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -66,7 +70,6 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
     e.preventDefault();
     e.stopPropagation();
 
-    // Guard against SSR: Only run on the client where window and navigator are defined.
     if (typeof window === 'undefined' || typeof navigator === 'undefined') {
       return;
     }
@@ -80,14 +83,11 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
-        // The native share sheet was used, no need for a toast.
       } else {
-        // Fallback for desktop browsers that have the clipboard API
         await navigator.clipboard.writeText(shareData.url);
         toast({ title: 'Link Copied!', description: 'Property link copied to clipboard.' });
       }
     } catch (err: any) {
-      // Avoid showing an error if the user cancels the share action
       if (err.name !== 'AbortError') {
         console.error('Failed to share: ', err);
         toast({
