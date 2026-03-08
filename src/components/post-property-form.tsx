@@ -93,7 +93,7 @@ const formSchema = z.object({
   })).optional(),
   nonVegAllowed: z.boolean().default(true),
   vehicleParking: z.string().optional(),
-  photos: z.array(z.string()).min(1, "Please upload at least one image.").max(5, "You can upload a maximum of 5 images."),
+  photos: z.array(z.string()).min(1, "Please upload at least one image.").max(10, "You can upload a maximum of 10 images."),
 
   ownerName: z.string({ required_error: "Owner name is required." }).min(1, "Owner name is required."),
   mobile: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit mobile number."),
@@ -802,15 +802,18 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                                   cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
                                   sources: ['local', 'url'],
                                   multiple: true,
-                                  maxFiles: 5,
+                                  maxFiles: 10,
                                   folder: `nestil/properties/${user?.uid || 'unknown'}`
                               }}
                               onSuccess={(result: any) => {
                                   if (result.event === 'success' && result.info?.secure_url) {
-                                      const newUrl = result.info.secure_url;
                                       const currentPhotos = form.getValues('photos') || [];
-                                      form.setValue('photos', [...currentPhotos, newUrl], { shouldValidate: true });
+                                      form.setValue('photos', [...currentPhotos, result.info.secure_url], { shouldValidate: true });
                                       toast({ title: "Image Uploaded", description: "Your image has been added." });
+                                  } else if (result.event === 'queues-end') {
+                                    const newUrls = result.info.files.map((file: any) => file.secure_url);
+                                    const currentPhotos = form.getValues('photos') || [];
+                                    form.setValue('photos', [...currentPhotos, ...newUrls], { shouldValidate: true });
                                   }
                               }}
                           >
@@ -842,7 +845,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                                                           </Button>
                                                       </div>
                                                   ))}
-                                                  {watchedPhotos.length < 5 && (
+                                                  {watchedPhotos.length < 10 && (
                                                       <div
                                                         onClick={() => open()}
                                                         className="flex items-center justify-center w-full aspect-[3/2] rounded-md border border-dashed cursor-pointer hover:border-primary bg-muted/50"
@@ -866,7 +869,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                                                   <div className="mt-4 flex text-sm leading-6 text-muted-foreground">
                                                       <p>Drag & drop photos here, or click to upload</p>
                                                   </div>
-                                                  <p className="text-xs leading-5 text-muted-foreground">Up to 5 images (PNG, JPG)</p>
+                                                  <p className="text-xs leading-5 text-muted-foreground">Up to 10 images (PNG, JPG)</p>
                                               </div>
                                           </div>
                                       )}
@@ -933,5 +936,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
     </div>
   );
 }
+
+    
 
     
