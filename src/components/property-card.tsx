@@ -1,4 +1,5 @@
 
+'use client';
 
 import type { Property } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -194,3 +195,5 @@ export function PropertyCardSkeleton() {
     </Card>
   );
 }
+
+    

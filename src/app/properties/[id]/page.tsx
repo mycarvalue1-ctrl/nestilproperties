@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams } from 'next/navigation';
@@ -69,20 +70,16 @@ export default function PropertyDetailPage() {
     async function fetchPrivateDetails() {
       if (!firestore || !params.id) return;
       const privateDocRef = doc(firestore, 'propertyPrivateDetails', params.id);
-      // This can throw a permission error for public users
       const docSnap = await getDoc(privateDocRef);
       if (docSnap.exists()) {
         setPrivateDetails(docSnap.data() as PropertyOwner);
       } else {
-        // Document doesn't exist, not an error.
         setPrivateDetails(null);
       }
     }
 
     if (property) {
       fetchPrivateDetails().catch(error => {
-        // This error is expected for unauthenticated users or those who don't own the property.
-        // We can safely ignore it and not show the contact card.
         if (error.code === 'permission-denied') {
           console.log("Permission denied when fetching private details (expected for public users).");
           setPrivateDetails(null);
@@ -331,3 +328,5 @@ export default function PropertyDetailPage() {
     </div>
   );
 }
+
+    

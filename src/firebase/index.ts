@@ -11,16 +11,11 @@ export function initializeFirebase() {
     return getSdks(getApp());
   }
 
-  // When deployed to Firebase App Hosting, environment variables are used.
-  // Locally, the try/catch falls back to the firebaseConfig object.
-  // This is a robust way to handle both environments without build warnings.
-  try {
-    const app = initializeApp();
-    return getSdks(app);
-  } catch (e) {
-    const app = initializeApp(firebaseConfig);
-    return getSdks(app);
-  }
+  // Always initialize with the explicit configuration to ensure consistency
+  // across local development and Vercel deployments. This avoids issues
+  // where the hosting environment doesn't automatically provide config.
+  const app = initializeApp(firebaseConfig);
+  return getSdks(app);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
