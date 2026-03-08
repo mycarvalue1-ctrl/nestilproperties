@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -24,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -349,6 +349,24 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error archiving property:", error);
       toast({ variant: "destructive", title: "Archive Failed", description: "Could not archive the property." });
+    } finally {
+      setProcessingPropertyId(null);
+    }
+  };
+  
+  const handleDeleteProperty = async (propertyId: string) => {
+    if (!firestore) return;
+    if (!window.confirm("Are you sure you want to permanently delete this property? This action cannot be undone.")) return;
+    setProcessingPropertyId(propertyId);
+    const propRef = doc(firestore, 'properties', propertyId);
+    const privatePropRef = doc(firestore, 'propertyPrivateDetails', propertyId);
+    try {
+      await deleteDoc(propRef);
+      await deleteDoc(privatePropRef);
+      toast({ title: "Property Deleted", description: "The property has been permanently removed." });
+    } catch (error) {
+      console.error("Error deleting property:", error);
+      toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the property." });
     } finally {
       setProcessingPropertyId(null);
     }
@@ -752,6 +770,14 @@ export default function AdminPage() {
                                 disabled={processingPropertyId === prop.id}
                             >
                                 {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}Archive
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                                className="text-red-600 focus:text-red-600 cursor-pointer"
+                                onClick={() => handleDeleteProperty(prop.id)}
+                                disabled={processingPropertyId === prop.id}
+                            >
+                                {processingPropertyId === prop.id ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
