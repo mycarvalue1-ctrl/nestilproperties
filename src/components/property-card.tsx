@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useFavorites } from '@/hooks/use-favorites';
+import { Button } from '@/components/ui/button';
 
 interface PropertyCardProps {
   property: Property;
