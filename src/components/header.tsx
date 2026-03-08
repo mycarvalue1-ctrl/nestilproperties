@@ -29,8 +29,9 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between h-[68px] px-4 md:px-10 bg-white/90 backdrop-blur-2xl border-b">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2 md:gap-6">
             <NavLogo />
+            <LocationSelector className="md:hidden" />
             <nav className="hidden md:flex items-center gap-1.5">
                 {navLinks.map(link => (
                     <Link key={link.href} href={link.href} className={cn(
@@ -43,7 +44,7 @@ export function Header() {
             </nav>
         </div>
         <div className="flex items-center gap-2.5">
-            <LocationSelector className="hidden lg:flex" />
+            <LocationSelector className="hidden md:flex" />
             <Button asChild className="hidden md:inline-flex !font-bold text-[13px] bg-primary hover:bg-blue-700 hover:-translate-y-px shadow-lg shadow-blue-500/10">
                 <Link href="/post-property">+ List Property</Link>
             </Button>
@@ -71,7 +72,6 @@ export function Header() {
                              <Button asChild className="w-full justify-start">
                                 <Link href="/post-property">+ List Property</Link>
                              </Button>
-                             <LocationSelector />
                          </div>
                     </nav>
                 </SheetContent>
