@@ -18,6 +18,7 @@ export type Property = {
   priceOnRequest?: boolean;
   areaSqFt: number;
   address: string;
+  subLocality?: string;
   city: string;
   pincode: string;
   description: string;

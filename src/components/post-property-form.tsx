@@ -74,6 +74,7 @@ const formSchema = z.object({
   state: z.string().optional(),
   city: z.string({ required_error: "City is required." }).min(1, "City is required."),
   locality: z.string({ required_error: "Area/Locality is required." }).min(1, "Area/Locality is required."),
+  subLocality: z.string().optional(),
   pincode: z.string().length(6, "Pincode must be 6 digits."),
   googleMapsLink: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   
@@ -177,6 +178,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       state: 'Andhra Pradesh',
       city: '',
       locality: '',
+      subLocality: '',
       pincode: '',
       googleMapsLink: '',
       price: 0,
@@ -292,6 +294,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                             state: data.state || 'Andhra Pradesh',
                             city: data.city,
                             locality: data.address,
+                            subLocality: data.subLocality || '',
                             pincode: data.pincode,
                             googleMapsLink: data.googleMapsLink,
                             price: data.price,
@@ -376,6 +379,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
       ownerName: values.ownerName,
       title: values.title, description: values.description, propertyType: values.propertyType,
       listingFor: values.listingFor, city: values.city, address: values.locality,
+      subLocality: values.subLocality,
       pincode: values.pincode, googleMapsLink: values.googleMapsLink, price: values.priceOnRequest ? 0 : values.price,
       priceOnRequest: values.priceOnRequest, negotiable: values.negotiable === 'Yes', maintenance: values.maintenance,
       deposit: values.deposit, availableFrom: values.availableFrom ? values.availableFrom.toISOString() : null,
@@ -528,9 +532,7 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                         <FormMessage />
                     </FormItem>
                 )} />
-            </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <FormField control={form.control} name="locality" render={({ field }) => (
+                <FormField control={form.control} name="locality" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Area / Locality</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} disabled={!watchedCity || localities.length === 0}>
@@ -543,6 +545,13 @@ export function PostPropertyFormComponent({ editId }: { editId: string | null })
                                 ))}
                             </SelectContent>
                         </Select>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="subLocality" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Sub-locality / Street (Optional)</FormLabel>
+                        <FormControl><Input placeholder="e.g., Gandhi Nagar, 4th Lane" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
