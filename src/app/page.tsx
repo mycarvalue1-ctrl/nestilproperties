@@ -81,6 +81,16 @@ const SearchWidget = () => {
     if (propertyType !== 'all') {
       params.set('type', propertyType);
     }
+    
+    if (budget && budget !== 'any') {
+      const [min, max] = budget.split('-');
+      if (min) {
+        params.set('minPrice', min);
+      }
+      if (max) {
+        params.set('maxPrice', max);
+      }
+    }
 
     router.push(`/properties?${params.toString()}`);
   };
