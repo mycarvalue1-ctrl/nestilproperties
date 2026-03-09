@@ -5,7 +5,7 @@ import type { Property } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, BadgeCheck, Star, BedDouble, Bath, Expand, Heart, Home } from 'lucide-react';
+import { MapPin, BadgeCheck, Star, BedDouble, Bath, Expand, Heart, Home, Share2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,27 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
     e.preventDefault();
     e.stopPropagation();
     toggleFavorite(property.id, isFavorited);
+  };
+  
+  const handleShareClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const propertyUrl = `${window.location.origin}/properties/${property.id}`;
+    navigator.clipboard.writeText(propertyUrl)
+      .then(() => {
+        toast({
+          title: 'Link Copied!',
+          description: 'Property link copied to your clipboard.',
+        });
+      })
+      .catch(err => {
+        console.error('Failed to copy text: ', err);
+        toast({
+          variant: 'destructive',
+          title: 'Copy Failed',
+          description: 'Could not copy the link.',
+        });
+      });
   };
   
   const validPhotos = (property.photos || []).filter(p => p && !p.includes('ik.imagekit.io'));
@@ -126,9 +147,14 @@ export function PropertyCard({ property, priority = false }: PropertyCardProps) 
             data-ai-hint="modern house"
           />
           {renderBadge()}
-          <Button variant="ghost" size="icon" className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/30 text-white hover:bg-black/60 z-20 backdrop-blur-sm" onClick={handleFavoriteClick} title="Favorite property">
-            <Heart className={cn("h-4 w-4", isFavorited && "fill-destructive text-destructive")} />
-          </Button>
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/30 text-white hover:bg-black/60 backdrop-blur-sm" onClick={handleShareClick} title="Share property">
+                <Share2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/30 text-white hover:bg-black/60 backdrop-blur-sm" onClick={handleFavoriteClick} title="Favorite property">
+                <Heart className={cn("h-4 w-4", isFavorited && "fill-destructive text-destructive")} />
+            </Button>
+          </div>
         </div>
         
         <CardContent className="p-4 flex flex-col flex-grow">
