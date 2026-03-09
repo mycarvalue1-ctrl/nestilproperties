@@ -40,12 +40,21 @@ export function LocationSelector({ className }: { className?: string }) {
   const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
   const [selectedLocality, setSelectedLocality] = useState<string>('');
 
-  const [districts, setDistricts] = useState<District[]>([]);
-
   const [savedLocation, setSavedLocation] = useState<Location | null>(null);
   const { toast } = useToast();
+  
+  // This state will track if we are on the client to avoid hydration errors.
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    // This runs only on the client, after the first render, setting isMounted to true.
+    setIsMounted(true); 
+  }, []);
+
+  useEffect(() => {
+    // This effect now only runs on the client, after isMounted is true.
+    if (!isMounted) return;
+
     const handleLocationUpdate = () => {
       try {
         const locationJson = localStorage.getItem('userLocation');
@@ -84,7 +93,7 @@ export function LocationSelector({ className }: { className?: string }) {
     return () => {
       window.removeEventListener('location-changed', handleLocationUpdate);
     };
-  }, [locationData]);
+  }, [isMounted, locationData]); // Depend on isMounted
 
   const handleStateChange = (stateName: string) => {
     const state = locationData.find((s) => s.name === stateName);
@@ -160,7 +169,7 @@ export function LocationSelector({ className }: { className?: string }) {
       >
         <MapPin className="h-4 w-4 text-primary" />
         <span className="truncate max-w-[100px] md:max-w-[150px]">
-          {savedLocation
+          {isMounted && savedLocation
             ? `${savedLocation.locality}, ${savedLocation.district}`
             : 'Select Location'}
         </span>
