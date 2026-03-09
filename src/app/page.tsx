@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -179,9 +180,7 @@ const FeaturedProperties = () => {
         if (!firestore) return null;
         return query(
             collection(firestore, 'properties'), 
-            where('listingStatus', '==', 'approved'),
-            orderBy('postedAt', 'desc'),
-            limit(10)
+            where('listingStatus', '==', 'approved')
         );
     }, [firestore]);
 
@@ -189,13 +188,17 @@ const FeaturedProperties = () => {
 
     const propertiesToShow = useMemo(() => {
         if (!approvedProperties) return [];
+
+        const sortedProperties = [...approvedProperties].sort((a, b) => {
+            if (a.postedAt && b.postedAt) {
+                return b.postedAt.seconds - a.postedAt.seconds;
+            }
+            return 0;
+        });
         
-        const featured = approvedProperties.filter(prop => prop.featured);
-        if (featured.length >= 3) {
-            return featured.slice(0, 3);
-        }
+        const featured = sortedProperties.filter(prop => prop.featured);
+        const nonFeatured = sortedProperties.filter(prop => !prop.featured);
         
-        const nonFeatured = approvedProperties.filter(prop => !prop.featured);
         const combined = [...featured, ...nonFeatured];
         
         return combined.slice(0, 3);
@@ -263,3 +266,5 @@ export default function Home() {
     </>
   );
 }
+
+    
