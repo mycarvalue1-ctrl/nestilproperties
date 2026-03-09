@@ -27,6 +27,13 @@ const propertyTypesList = [
     'Villa', 'Row House', 'Duplex', 'Studio Apartment', 'PG / Hostel', 'Land', 'Plot', 'Commercial properties', 'Godowns', 'Warehouses', 'Agricultural Land'
 ];
 
+type Location = {
+  state: string;
+  district: string;
+  locality: string;
+  subLocality?: string;
+};
+
 function PropertySearchComponent() {
   const searchParams = useSearchParams();
   const firestore = useFirestore();
@@ -45,6 +52,30 @@ function PropertySearchComponent() {
   const [transaction, setTransaction] = useState(searchParams.get('transaction') || 'all');
   const [propertyType, setPropertyType] = useState(searchParams.get('type') || 'all');
   const [priceRange, setPriceRange] = useState<[number, number]>(getInitialPriceRange());
+  const [headerLocation, setHeaderLocation] = useState<Location | null>(null);
+
+  useEffect(() => {
+    const handleLocationUpdate = () => {
+      try {
+        const locationJson = localStorage.getItem('userLocation');
+        if (locationJson) {
+          setHeaderLocation(JSON.parse(locationJson) as Location);
+        } else {
+          setHeaderLocation(null);
+        }
+      } catch (error) {
+        console.error("Could not parse location from localStorage", error);
+        setHeaderLocation(null);
+      }
+    };
+
+    handleLocationUpdate();
+    window.addEventListener('location-changed', handleLocationUpdate);
+
+    return () => {
+      window.removeEventListener('location-changed', handleLocationUpdate);
+    };
+  }, []);
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -53,6 +84,16 @@ function PropertySearchComponent() {
       collection(firestore, 'properties'),
       where('listingStatus', '==', 'approved')
     );
+
+    // If there's no keyword search, filter by the location set in the header.
+    if (headerLocation && !keyword) {
+      if(headerLocation.district) {
+        q = query(q, where('city', '==', headerLocation.district));
+      }
+      if(headerLocation.locality) {
+        q = query(q, where('address', '==', headerLocation.locality));
+      }
+    }
 
     if (transaction !== 'all') {
       q = query(q, where('listingFor', '==', transaction));
@@ -68,13 +109,15 @@ function PropertySearchComponent() {
     }
     
     return q;
-  }, [firestore, transaction, propertyType, priceRange]);
+  }, [firestore, transaction, propertyType, priceRange, headerLocation, keyword]);
 
   const { data: serverFilteredProperties, isLoading } = useCollection<Property>(propertiesQuery);
 
   const filteredProperties = useMemo(() => {
     if (!serverFilteredProperties) return [];
 
+    // If a keyword is entered, we perform a client-side search on the results.
+    // If no keyword, we just show the server-filtered list.
     if (!keyword) return serverFilteredProperties;
 
     return serverFilteredProperties.filter(prop => {
