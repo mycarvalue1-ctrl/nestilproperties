@@ -14,7 +14,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, limit, orderBy } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { PropertyCardSkeleton } from '@/components/property-card';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const propertyTypesList = [
@@ -60,6 +60,27 @@ const SearchWidget = () => {
   const [keyword, setKeyword] = useState('');
   const [propertyType, setPropertyType] = useState('all');
   const [budget, setBudget] = useState('any');
+  
+  const saleBudgetOptions = [
+      { value: "0-3000000", label: "Under ₹30 Lac" },
+      { value: "3000000-6000000", label: "₹30 - ₹60 Lac" },
+      { value: "6000000-10000000", label: "₹60 Lac - ₹1 Cr" },
+      { value: "10000000-Infinity", label: "Above ₹1 Cr" },
+  ];
+
+  const rentBudgetOptions = [
+      { value: "0-10000", label: "Under ₹10,000" },
+      { value: "10000-20000", label: "₹10,000 - ₹20,000" },
+      { value: "20000-50000", label: "₹20,000 - ₹50,000" },
+      { value: "50000-100000", label: "₹50,000 - ₹1 Lac" },
+      { value: "100000-Infinity", label: "Above ₹1 Lac" },
+  ];
+  
+  const budgetOptions = searchTab === 'rent' ? rentBudgetOptions : saleBudgetOptions;
+
+  useEffect(() => {
+    setBudget('any');
+  }, [searchTab]);
 
   const handleSearch = () => {
     const params = new URLSearchParams();
@@ -134,10 +155,9 @@ const SearchWidget = () => {
                         <SelectTrigger className="border-0 p-0 h-auto text-sm focus-visible:ring-0"><SelectValue placeholder="Any Budget" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any Budget</SelectItem>
-                          <SelectItem value="0-3000000">Under ₹30 Lac</SelectItem>
-                          <SelectItem value="3000000-6000000">₹30 - ₹60 Lac</SelectItem>
-                          <SelectItem value="6000000-10000000">₹60 Lac - ₹1 Cr</SelectItem>
-                          <SelectItem value="10000000-Infinity">Above ₹1 Cr</SelectItem>
+                          {budgetOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
                         </SelectContent>
                     </Select>
                 </div>
@@ -277,3 +297,4 @@ export default function Home() {
     
 
     
+
