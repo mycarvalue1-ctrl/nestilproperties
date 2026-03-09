@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { MapPin, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -36,10 +37,9 @@ export function LocationSelector({ className }: { className?: string }) {
 
   const [selectedState, setSelectedState] = useState<State | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
-  const [selectedLocality, setSelectedLocality] = useState<Locality | null>(null);
+  const [selectedLocality, setSelectedLocality] = useState<string>('');
 
   const [districts, setDistricts] = useState<District[]>([]);
-  const [localities, setLocalities] = useState<Locality[]>([]);
 
   const [savedLocation, setSavedLocation] = useState<Location | null>(null);
   const { toast } = useToast();
@@ -49,7 +49,19 @@ export function LocationSelector({ className }: { className?: string }) {
       try {
         const locationJson = localStorage.getItem('userLocation');
         if (locationJson) {
-          setSavedLocation(JSON.parse(locationJson));
+          const parsedLocation = JSON.parse(locationJson);
+          setSavedLocation(parsedLocation);
+          // Pre-fill the modal with the saved location when it opens
+          const state = locationData.find(s => s.name === parsedLocation.state);
+          if (state) {
+            setSelectedState(state);
+            setDistricts(state.districts);
+            const district = state.districts.find(d => d.name === parsedLocation.district);
+            if (district) {
+              setSelectedDistrict(district);
+            }
+          }
+          setSelectedLocality(parsedLocation.locality || '');
         } else {
           const defaultLocation = {
             state: 'Andhra Pradesh',
@@ -64,14 +76,14 @@ export function LocationSelector({ className }: { className?: string }) {
       }
     };
 
-    handleLocationUpdate(); // Run on initial mount
+    handleLocationUpdate();
 
     window.addEventListener('location-changed', handleLocationUpdate);
 
     return () => {
       window.removeEventListener('location-changed', handleLocationUpdate);
     };
-  }, []);
+  }, [locationData]);
 
   const handleStateChange = (stateName: string) => {
     const state = locationData.find((s) => s.name === stateName);
@@ -79,7 +91,7 @@ export function LocationSelector({ className }: { className?: string }) {
       setSelectedState(state);
       setDistricts(state.districts);
       setSelectedDistrict(null);
-      setSelectedLocality(null);
+      setSelectedLocality('');
       setStep(2);
     }
   };
@@ -88,16 +100,8 @@ export function LocationSelector({ className }: { className?: string }) {
     const district = districts.find((d) => d.name === districtName);
     if (district) {
       setSelectedDistrict(district);
-      setLocalities(district.localities);
-      setSelectedLocality(null);
+      setSelectedLocality(''); // Reset locality on district change
       setStep(3);
-    }
-  };
-
-  const handleLocalityChange = (localityName: string) => {
-    const locality = localities.find((l) => l.name === localityName);
-    if (locality) {
-      setSelectedLocality(locality);
     }
   };
 
@@ -106,13 +110,12 @@ export function LocationSelector({ className }: { className?: string }) {
       const newLocation = {
         state: selectedState.name,
         district: selectedDistrict.name,
-        locality: selectedLocality.name,
+        locality: selectedLocality,
       };
       localStorage.setItem('userLocation', JSON.stringify(newLocation));
       window.dispatchEvent(new CustomEvent('location-changed'));
       setSavedLocation(newLocation);
       setIsModalOpen(false);
-      resetSelection();
       toast({
         title: "Location Updated!",
         description: `Your location has been set to ${newLocation.locality}, ${newLocation.district}.`,
@@ -120,17 +123,27 @@ export function LocationSelector({ className }: { className?: string }) {
     }
   };
   
-  const resetSelection = () => {
-    setStep(1);
-    setSelectedState(null);
-    setSelectedDistrict(null);
-    setSelectedLocality(null);
-    setDistricts([]);
-    setLocalities([]);
-  }
-
   const openModal = () => {
-      resetSelection();
+      // When opening, ensure the modal reflects the currently saved location
+      const locationJson = localStorage.getItem('userLocation');
+      if (locationJson) {
+        try {
+            const parsedLocation = JSON.parse(locationJson);
+            const state = locationData.find(s => s.name === parsedLocation.state);
+            if (state) {
+                setSelectedState(state);
+                setDistricts(state.districts);
+                const district = state.districts.find(d => d.name === parsedLocation.district);
+                if (district) {
+                    setSelectedDistrict(district);
+                    setStep(3);
+                } else {
+                    setStep(2);
+                }
+            }
+            setSelectedLocality(parsedLocation.locality || '');
+        } catch {}
+      }
       setIsModalOpen(true);
   }
 
@@ -205,23 +218,15 @@ export function LocationSelector({ className }: { className?: string }) {
 
             {step >= 3 && (
               <div className="grid grid-cols-4 items-center gap-4">
-                <label className="text-right">Locality</label>
-                <Select
-                  onValueChange={handleLocalityChange}
-                  value={selectedLocality?.name || ''}
+                <label htmlFor='locality-input' className="text-right">Locality</label>
+                <Input
+                  id="locality-input"
+                  className="col-span-3"
+                  placeholder="Enter a locality"
+                  value={selectedLocality}
+                  onChange={(e) => setSelectedLocality(e.target.value)}
                   disabled={!selectedDistrict}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select a locality" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {localities.map((locality) => (
-                      <SelectItem key={locality.name} value={locality.name}>
-                        {locality.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
             )}
           </div>
