@@ -33,7 +33,7 @@ export function Footer() {
                         <SocialIcon href="#"><Youtube size={16} /></SocialIcon>
                     </div>
                 </div>
-                <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-8">
+                <div className="lg:col-span-3 grid grid-cols-3 gap-8">
                     <div>
                         <h4 className="text-xs font-bold tracking-[1.5px] uppercase text-slate-500 mb-5">Properties</h4>
                         <ul className="flex flex-col gap-3">
