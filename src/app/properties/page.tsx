@@ -18,7 +18,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Search, X } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, DocumentData, Query } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -48,40 +48,47 @@ function PropertySearchComponent() {
 
   const propertiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(
+    
+    let q: Query<DocumentData> = query(
       collection(firestore, 'properties'),
       where('listingStatus', '==', 'approved')
     );
-  }, [firestore]);
 
-  const { data: allProperties, isLoading } = useCollection<Property>(propertiesQuery);
+    if (transaction !== 'all') {
+      q = query(q, where('listingFor', '==', transaction));
+    }
+    if (propertyType !== 'all') {
+      q = query(q, where('propertyType', '==', propertyType));
+    }
+    if (priceRange[0] > 0) {
+      q = query(q, where('price', '>=', priceRange[0]));
+    }
+    if (priceRange[1] < 10000000) {
+      q = query(q, where('price', '<=', priceRange[1]));
+    }
+    
+    return q;
+  }, [firestore, transaction, propertyType, priceRange]);
+
+  const { data: serverFilteredProperties, isLoading } = useCollection<Property>(propertiesQuery);
 
   const filteredProperties = useMemo(() => {
-    if (!allProperties) return [];
+    if (!serverFilteredProperties) return [];
 
-    return allProperties.filter(prop => {
-      if (!prop || typeof prop.price !== 'number') {
-        return false;
-      }
+    if (!keyword) return serverFilteredProperties;
 
-      const keywordMatch = keyword
-        ? (prop.title?.toLowerCase() || '').includes(keyword.toLowerCase()) ||
-          (prop.address?.toLowerCase() || '').includes(keyword.toLowerCase()) ||
-          (prop.city?.toLowerCase() || '').includes(keyword.toLowerCase())
-        : true;
+    return serverFilteredProperties.filter(prop => {
+      if (!prop) return false;
+      const keywordLower = keyword.toLowerCase();
+      
+      const keywordMatch = 
+          (prop.title?.toLowerCase() || '').includes(keywordLower) ||
+          (prop.address?.toLowerCase() || '').includes(keywordLower) ||
+          (prop.city?.toLowerCase() || '').includes(keywordLower);
 
-      const transactionMatch =
-        transaction !== 'all'
-          ? (prop.listingFor?.toLowerCase() || '') === transaction.toLowerCase()
-          : true;
-
-      const typeMatch = propertyType !== 'all' ? prop.propertyType === propertyType : true;
-
-      const priceMatch = prop.price >= priceRange[0] && prop.price <= priceRange[1];
-
-      return keywordMatch && transactionMatch && typeMatch && priceMatch;
+      return keywordMatch;
     });
-  }, [allProperties, keyword, transaction, propertyType, priceRange]);
+  }, [serverFilteredProperties, keyword]);
 
   const handleReset = () => {
     setKeyword('');
